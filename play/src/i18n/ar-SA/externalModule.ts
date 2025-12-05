@@ -40,6 +40,49 @@ const externalModule: DeepPartial<Translation["externalModule"]> = {
         guilds: "خوادم Discord",
         guildExplain: "حدد القنوات التي تريد إضافتها إلى واجهة دردشة Workadventure.\n",
     },
+    outlook: {
+        signIn: "تسجيل الدخول باستخدام Outlook",
+        popupScopeToSync: "الاتصال بحساب Outlook الخاص بي",
+        popupScopeToSyncExplainText:
+            "نحتاج إلى الاتصال بحساب Outlook الخاص بك لمزامنة تقويمك و/أو مهامك. سيمكنك ذلك من عرض اجتماعاتك ومهامك في WorkAdventure والانضمام إليها مباشرة من الخريطة.",
+        popupScopeToSyncCalendar: "مزامنة التقويم الخاص بي",
+        popupScopeToSyncTask: "مزامنة مهامي",
+        popupCancel: "إلغاء",
+        isSyncronized: "تمت المزامنة مع Outlook",
+        popupScopeIsConnectedExplainText: "أنت متصل بالفعل، يرجى النقر على الزر لتسجيل الخروج وإعادة الاتصال.",
+        popupScopeIsConnectedButton: "تسجيل الخروج",
+    },
+    google: {
+        signIn: "تسجيل الدخول باستخدام Google",
+        popupScopeToSync: "الاتصال بحساب Google الخاص بي",
+        popupScopeToSyncExplainText:
+            "نحتاج إلى الاتصال بحساب Google الخاص بك لمزامنة تقويمك و/أو مهامك. سيمكنك ذلك من عرض اجتماعاتك ومهامك في WorkAdventure والانضمام إليها مباشرة من الخريطة.",
+        popupScopeToSyncCalendar: "مزامنة التقويم الخاص بي",
+        popupScopeToSyncTask: "مزامنة مهامي",
+        popupCancel: "إلغاء",
+        isSyncronized: "تمت المزامنة مع Google",
+        popupScopeToSyncMeet: "إنشاء اجتماعات عبر الإنترنت",
+        openingMeet: "جاري فتح Google Meet... 🙏",
+        unableJoinMeet: "غير قادر على الانضمام إلى Google Meet 😭",
+        googleMeetPopupWaiting: {
+            title: "Google Meet 🎉",
+            subtitle: "جارٍ إنشاء مساحة Google… سيستغرق الأمر لحظة فقط 💪",
+            guestError: "لست متصلاً، لذلك لا يمكنك إنشاء اجتماع Google Meet 😭",
+            guestExplain: "يرجى تسجيل الدخول إلى المنصة لإنشاء اجتماع Google Meet، أو اطلب من المالك إنشاؤه لك 🚀",
+            error: "إعدادات Google Workspace لديك لا تسمح بإنشاء اجتماع Meet.",
+            errorExplain: "لا تقلق — ما زال بإمكانك الانضمام إلى الاجتماعات عندما يشارك شخص آخر الرابط 🙏",
+        },
+        popupScopeIsConnectedButton: "تسجيل الخروج",
+        popupScopeIsConnectedExplainText: "أنت متصل بالفعل، يرجى النقر على الزر لتسجيل الخروج وإعادة الاتصال.",
+    },
+    calendar: {
+        title: "اجتماعاتك اليوم",
+        joinMeeting: "انقر هنا للانضمام إلى الاجتماع",
+    },
+    todoList: {
+        title: "المهام",
+        sentence: "خذ استراحة 🙏 ربما فنجان قهوة أو شاي؟ ☕",
+    },
 };
 
 export default externalModule;

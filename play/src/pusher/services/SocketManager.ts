@@ -30,6 +30,7 @@ import {
     QueryMessage,
     RemoveSpaceFilterMessage,
     ReportPlayerMessage,
+    RequestFullSyncMessage,
     SearchMemberAnswer,
     SearchMemberQuery,
     SearchTagsAnswer,
@@ -187,7 +188,7 @@ export class SocketManager implements ZoneEventListener {
                             roomId +
                             "'"
                     );
-                    this.closeWebsocketConnection(client, 1011, "Admin Connection lost to back server");
+                    this.closeAdminWebsocketConnection(client, 1011, "Admin Connection lost to back server");
                 }
             })
             .on("error", (err: Error) => {
@@ -199,17 +200,8 @@ export class SocketManager implements ZoneEventListener {
                         "':",
                     err
                 );
-
-                Sentry.captureMessage(
-                    "Error in connection to back server '" +
-                        apiClient.getChannel().getTarget() +
-                        "' for room '" +
-                        roomId +
-                        err,
-                    "debug"
-                );
                 if (!socketData.disconnecting) {
-                    this.closeWebsocketConnection(client, 1011, "Error while connecting to back server");
+                    this.closeAdminWebsocketConnection(client, 1011, "Error while connecting to back server");
                 }
             });
 
@@ -319,16 +311,6 @@ export class SocketManager implements ZoneEventListener {
                             date.toLocaleString("en-GB"),
                         err
                     );
-                    Sentry.captureMessage(
-                        "Error in connection to back server '" +
-                            apiClient.getChannel().getTarget() +
-                            "' for room '" +
-                            socketData.roomId +
-                            "': " +
-                            socketData.userUuid +
-                            err,
-                        "debug"
-                    );
                     if (!socketData.disconnecting) {
                         this.closeWebsocketConnection(client, 1011, "Error while connecting to back server");
                     }
@@ -366,9 +348,13 @@ export class SocketManager implements ZoneEventListener {
 
     public async handleJoinSpace(
         client: Socket,
+
         spaceName: string,
+
         localSpaceName: string,
-        filterType: FilterType
+        filterType: FilterType,
+        propertiesToSync: string[],
+        options: { signal: AbortSignal }
     ): Promise<void> {
         const socketData = client.getUserData();
 
@@ -386,7 +372,9 @@ export class SocketManager implements ZoneEventListener {
                 eventProcessor,
                 filterType,
                 onSpaceEmpty,
-                this._spaceConnection
+                this._spaceConnection,
+                client.getUserData().world,
+                propertiesToSync
             );
 
             this.spaces.set(spaceName, space);
@@ -403,11 +391,13 @@ export class SocketManager implements ZoneEventListener {
         socketData.joinSpacesPromise.set(spaceName, deferred);
         try {
             await space.forwarder.registerUser(client, filterType);
+            if (options.signal.aborted) {
+                // The user has aborted the request, we should not add him to the space
+                await space.forwarder.unregisterUser(client);
+                throw new Error("Join space aborted by the user");
+            }
             if (socketData.spaces.has(spaceName)) {
-                console.error(`User ${socketData.name} is trying to join a space he is already in.`);
-                Sentry.captureException(
-                    new Error(`User ${socketData.name} is trying to join a space he is already in.`)
-                );
+                console.warn(`User ${socketData.name} is trying to join a space he is already in.`);
             }
 
             socketData.spaces.add(space.name);
@@ -418,9 +408,50 @@ export class SocketManager implements ZoneEventListener {
         }
     }
 
-    private closeWebsocketConnection(client: Socket | AdminSocket, code: number, reason: string): void {
+    private closeAdminWebsocketConnection(client: AdminSocket, code: number, reason: string): void {
         client.getUserData().disconnecting = true;
         client.end(code, reason);
+    }
+
+    private closeWebsocketConnection(client: Socket, code: number, reason: string): void {
+        this.cleanupSocket(client);
+        client.end(code, reason);
+    }
+
+    public cleanupSocket(client: Socket): void {
+        const socketData = client.getUserData();
+
+        if (socketData.disconnecting) {
+            // Cleanup already called
+            return;
+        }
+
+        try {
+            socketData.disconnecting = true;
+            this.leaveRoom(client);
+        } catch (e) {
+            Sentry.captureException(e);
+            console.error("Error while leaving room", e);
+        }
+        try {
+            this.leaveSpaces(client).catch((error) => {
+                console.error("Error while leaving spaces", error);
+                Sentry.captureException(error);
+            });
+        } catch (e) {
+            Sentry.captureException(e);
+            console.error(e);
+        }
+        try {
+            this.leaveChatRoomArea(client).catch((error) => {
+                console.error("Error while leaving chat room area", error);
+                Sentry.captureException(error);
+            });
+        } catch (e) {
+            Sentry.captureException(e);
+            console.error(e);
+        }
+        socketData.currentChatRoomArea = [];
     }
 
     handleViewport(client: Socket, viewport: ViewportMessage): void {
@@ -462,6 +493,18 @@ export class SocketManager implements ZoneEventListener {
 
         // Now, we need to listen to the correct viewport.
         this.handleViewport(client, viewport);
+    }
+
+    onGroupUsersUpdated(group: GroupDescriptor, listener: Socket): void {
+        emitInBatch(listener, {
+            message: {
+                $case: "groupUsersUpdateMessage",
+                groupUsersUpdateMessage: {
+                    groupId: group.groupId,
+                    userIds: group.userIds,
+                },
+            },
+        });
     }
 
     onEmote(emoteMessage: EmoteEventMessage, listener: Socket): void {
@@ -608,17 +651,20 @@ export class SocketManager implements ZoneEventListener {
 
             if (space) {
                 try {
-                    await space.forwarder.unregisterUser(socket);
-                    if (space.isEmpty()) {
-                        space.cleanup();
-                    }
-
                     socketData.joinSpacesPromise.delete(spaceName);
+
+                    await space.forwarder.unregisterUser(socket);
+
                     return { space, spaceName, success: true };
                 } catch (error) {
                     console.error(`Error unregistering user from space ${spaceName}:`, error);
                     Sentry.captureException(error);
                     return { space, spaceName, success: false };
+                } finally {
+                    if (space.isEmpty()) {
+                        space.cleanup();
+                        this.spaces.delete(space.name);
+                    }
                 }
             } else {
                 console.error(
@@ -978,7 +1024,7 @@ export class SocketManager implements ZoneEventListener {
 
         const space = this.spaces.get(newFilter.spaceName);
         if (space) {
-            space.handleWatch(client);
+            await space.handleWatch(client);
         } else {
             console.error(`Add space filter called on a space (${newFilter.spaceName}) that does not exist`);
             Sentry.captureException(
@@ -987,12 +1033,13 @@ export class SocketManager implements ZoneEventListener {
         }
     }
 
-    async handleRemoveSpaceFilterMessage(
+    handleRemoveSpaceFilterMessage(
         client: Socket,
         removeSpaceFilterMessage: NonUndefinedFields<RemoveSpaceFilterMessage>
     ) {
         const oldFilter = removeSpaceFilterMessage.spaceFilterMessage;
-        await this.checkClientIsPartOfSpace(client, oldFilter.spaceName);
+        // We don't check that the client is part of the space here, because we could stop watching a space after leaving it.
+        //await this.checkClientIsPartOfSpace(client, oldFilter.spaceName);
         const space = this.spaces.get(oldFilter.spaceName);
         if (space) {
             space.handleUnwatch(client);
@@ -1236,17 +1283,25 @@ export class SocketManager implements ZoneEventListener {
         };
     }
 
-    async handleGetMemberQuery(getMemberQuery: GetMemberQuery): Promise<GetMemberAnswer> {
-        const memberFromApi = await adminService.getMember(getMemberQuery.uuid);
-        return {
-            member: {
-                id: memberFromApi.id,
-                name: memberFromApi.name ?? undefined,
-                email: memberFromApi.email ?? undefined,
-                visitCardUrl: memberFromApi.visitCardUrl ?? undefined,
-                chatID: memberFromApi.chatID ?? undefined,
-            },
-        };
+    async handleGetMemberQuery(getMemberQuery: GetMemberQuery): Promise<GetMemberAnswer | undefined> {
+        try {
+            const memberFromApi = await adminService.getMember(getMemberQuery.uuid);
+            return {
+                member: {
+                    id: memberFromApi.id,
+                    name: memberFromApi.name ?? undefined,
+                    email: memberFromApi.email ?? undefined,
+                    visitCardUrl: memberFromApi.visitCardUrl ?? undefined,
+                    chatID: memberFromApi.chatID ?? undefined,
+                },
+            };
+        } catch (e) {
+            console.warn(
+                `No member found for uuid ${getMemberQuery.uuid}. Probably the user doesn’t exist in the administration console`,
+                e
+            );
+            return undefined; // Ensure a value is returned in the catch block
+        }
     }
 
     async handleChatMembersQuery(client: Socket, chatMemberQuery: ChatMembersQuery): Promise<ChatMembersAnswer> {
@@ -1285,6 +1340,7 @@ export class SocketManager implements ZoneEventListener {
         if (!socketData.userId) {
             throw new Error("User id not found");
         }
+
         space.forwarder.forwardMessageToSpaceBack({
             $case: "publicEvent",
             publicEvent: {
@@ -1335,7 +1391,6 @@ export class SocketManager implements ZoneEventListener {
             );
         } catch (error) {
             console.error(error);
-            Sentry.captureException(error);
         }
 
         return;
@@ -1389,6 +1444,26 @@ export class SocketManager implements ZoneEventListener {
             expiresIn: "1h",
         });
         return jwtToken;
+    }
+
+    async handleRequestFullSync(socket: Socket, requestFullSyncMessage: RequestFullSyncMessage) {
+        const socketData = socket.getUserData();
+
+        await this.checkClientIsPartOfSpace(socket, requestFullSyncMessage.spaceName);
+        const space = this.spaces.get(requestFullSyncMessage.spaceName);
+        if (!space) {
+            throw new Error(
+                `Trying to send a public event to a space that does not exist: "${requestFullSyncMessage.spaceName}".`
+            );
+        }
+
+        space.forwarder.forwardMessageToSpaceBack({
+            $case: "requestFullSyncMessage",
+            requestFullSyncMessage: {
+                ...requestFullSyncMessage,
+                senderUserId: socketData.spaceUserId,
+            },
+        });
     }
 
     deleteSpaceIfEmpty(spaceName: string) {

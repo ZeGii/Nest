@@ -32,16 +32,23 @@ const actionbar: DeepPartial<Translation["actionbar"]> = {
     camera: {
         disabled: "الكاميرا معطلة",
         activate: "قم بتنشيط الكاميرا",
+        noDevices: "لم يتم العثور على جهاز كاميرا",
     },
     microphone: {
         disabled: "الميكروفون معطل",
         activate: "قم بتنشيط الميكروفون",
+        noDevices: "لم يتم العثور على جهاز ميكروفون",
+    },
+    speaker: {
+        disabled: "مكبر الصوت معطل",
+        activate: "قم بتنشيط مكبر الصوت",
+        noDevices: "لم يتم العثور على جهاز مكبر صوت",
     },
     status: {
         ONLINE: "متصل",
         AWAY: "بعيد",
         BACK_IN_A_MOMENT: "سأعود بعد قليل",
-        DO_NOT_DISTURB: "لا تزعج",
+        DO_NOT_DISTURB: "عدم الإزعاج",
         BUSY: "مشغول",
         OFFLINE: "غير متصل",
         SILENT: "صامت",
@@ -49,6 +56,7 @@ const actionbar: DeepPartial<Translation["actionbar"]> = {
         BBB: "في اجتماع",
         DENY_PROXIMITY_MEETING: "غير متوفر",
         SPEAKER: "في اجتماع",
+        LIVEKIT: "في اجتماع",
     },
     subtitle: {
         camera: "الكاميرا",
@@ -137,6 +145,23 @@ const actionbar: DeepPartial<Translation["actionbar"]> = {
         },
     },
     featureNotAvailable: "الميزة غير متوفرة لغرفتك 😭",
+    issueReport: {
+        menuAction: "الإبلاغ عن مشكلة",
+        formTitle: "الإبلاغ عن مشكلة",
+        emailLabel: "البريد الإلكتروني (غير مطلوب)",
+        nameLabel: "الاسم (غير مطلوب)",
+        descriptionLabel: "الوصف* (مطلوب)",
+        descriptionPlaceholder: "ما هي المشكلة؟ ما الذي كنت تتوقع؟",
+        submitButtonLabel: "الإبلاغ عن مشكلة",
+        cancelButtonLabel: "إلغاء",
+        confirmButtonLabel: "تأكيد",
+        addScreenshotButtonLabel: "إضافة لقطة الشاشة",
+        removeScreenshotButtonLabel: "إزالة لقطة الشاشة",
+        successMessageText: "شكرا لك على الإبلاغ! سنقوم بمراجعته في أقرب وقت ممكن.",
+        highlightToolText: "تمييز",
+        hideToolText: "إخفاء",
+        removeHighlightText: "إزالة",
+    },
 };
 
 export default actionbar;

@@ -57,8 +57,16 @@ const camera: BaseTranslation = {
         muteAudioEveryBody: "Mute audio for everybody",
         muteVideoUser: "Mute video",
         muteVideoEveryBody: "Mute video for everybody",
-        pin: "Pin",
         blockOrReportUser: "Moderation",
+    },
+    backgroundEffects: {
+        imageTitle: "Background Images",
+        videoTitle: "Background Videos",
+        blurTitle: "Background Blur",
+        resetTitle: "Disable background effects",
+        title: "Background Effects",
+        close: "Close",
+        blurAmount: "Blur Amount",
     },
 };
 

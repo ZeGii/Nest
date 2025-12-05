@@ -11,7 +11,6 @@
     import { analyticsClient } from "../../../Administration/AnalyticsClient";
     import LL from "../../../../i18n/i18n-svelte";
     import AddPropertyButtonWrapper from "../PropertyEditor/AddPropertyButtonWrapper.svelte";
-    import JitsiRoomPropertyEditor from "../PropertyEditor/JitsiRoomPropertyEditor.svelte";
     import PlayAudioPropertyEditor from "../PropertyEditor/PlayAudioPropertyEditor.svelte";
     import OpenWebsitePropertyEditor from "../PropertyEditor/OpenWebsitePropertyEditor.svelte";
     import { connectionManager } from "../../../Connection/ConnectionManager";
@@ -26,7 +25,6 @@
     let entityName = "";
     let entityDescription = "";
     let entitySearchable = false;
-    let hasJitsiRoomProperty: boolean;
     let showDescriptionField = false;
     let selectedEntity: Entity | undefined = undefined;
 
@@ -59,7 +57,6 @@
 
             // refresh properties
             properties = $mapEditorSelectedEntityStore?.getProperties();
-            refreshFlags();
         }
     }
 
@@ -82,12 +79,12 @@
             targetEmbedableUrl: app.targetUrl,
             forceNewTab: app.forceNewTab,
             allowAPI: app.allowAPI,
+            hideUrl: false,
         };
         $mapEditorSelectedEntityStore.addProperty(property);
 
         // refresh properties
         properties = $mapEditorSelectedEntityStore?.getProperties();
-        refreshFlags();
     }
 
     function onUpdateName() {
@@ -143,6 +140,19 @@
                     roomName: "JITSI ROOM",
                     buttonLabel: $LL.mapEditor.properties.jitsiProperties.label(),
                 };
+            case "livekitRoomProperty":
+                return {
+                    id,
+                    type,
+                    roomName: "LIVEKIT ROOM",
+                    buttonLabel: $LL.mapEditor.properties.livekitProperties.label(),
+                    livekitRoomConfig: {
+                        startWithAudioMuted: false,
+                        startWithVideoMuted: false,
+                        disableChat: false,
+                    },
+                    livekitRoomAdminTag: "",
+                };
             case "openFile":
                 return {
                     id,
@@ -154,6 +164,7 @@
                     buttonLabel: $LL.mapEditor.properties.openFileProperties.label(),
                     policy,
                     width: 50,
+                    hideUrl: false,
                 };
             case "openWebsite":
                 switch (subtype) {
@@ -216,6 +227,7 @@
                     allowAPI: false,
                     policy,
                     width: 50,
+                    hideUrl: false,
                 };
             case "playAudio":
                 return {
@@ -239,15 +251,7 @@
             // $mapEditorSelectedEntityStore.delete();
             // mapEditorSelectedEntityStore.set(undefined);
             // mapEditorEntityModeStore.set("ADD");
-            refreshFlags();
         }
-    }
-
-    function refreshFlags(): void {
-        hasJitsiRoomProperty = hasProperty("jitsiRoomProperty");
-    }
-    function hasProperty(propertyType: EntityDataPropertiesKeys): boolean {
-        return properties.find((property) => property.type === propertyType) !== undefined;
     }
 
     function backToSelectObject() {
@@ -278,21 +282,15 @@
             <IconArrowLeft font-size="12" class="cursor-pointer" />
             <span class="ml-1 cursor-pointer">{$LL.mapEditor.entityEditor.itemPicker.backToSelectObject()}</span>
         </p>
-        <div class="properties-buttons flex flex-row">
-            {#if !hasJitsiRoomProperty}
-                <AddPropertyButtonWrapper
-                    property="jitsiRoomProperty"
-                    on:click={() => {
-                        onAddProperty("jitsiRoomProperty");
-                    }}
-                />
-            {/if}
+        <div class="properties-buttons flex flex-row m-2">
             <AddPropertyButtonWrapper
                 property="playAudio"
                 on:click={() => {
                     onAddProperty("playAudio");
                 }}
             />
+        </div>
+        <div class="properties-buttons flex flex-row flex-wrap m-2">
             <AddPropertyButtonWrapper
                 property="openWebsite"
                 on:click={() => {
@@ -305,8 +303,6 @@
                     onAddProperty("openFile");
                 }}
             />
-        </div>
-        <div class="properties-buttons flex flex-row flex-wrap m-2">
             <AddPropertyButtonWrapper
                 property="openWebsite"
                 subProperty="klaxoon"
@@ -361,6 +357,13 @@
                 subProperty="excalidraw"
                 on:click={() => {
                     onAddProperty("openWebsite", "excalidraw");
+                }}
+            />
+            <AddPropertyButtonWrapper
+                property="openWebsite"
+                subProperty="tldraw"
+                on:click={() => {
+                    onAddProperty("openWebsite", "tldraw");
                 }}
             />
         </div>
@@ -419,16 +422,7 @@
         <div class="properties-container">
             {#each properties as property (property.id)}
                 <div class="property-box">
-                    {#if property.type === "jitsiRoomProperty"}
-                        <JitsiRoomPropertyEditor
-                            {property}
-                            triggerOptionActivated={false}
-                            on:close={() => {
-                                onDeleteProperty(property.id);
-                            }}
-                            on:change={() => onUpdateProperty(property)}
-                        />
-                    {:else if property.type === "playAudio"}
+                    {#if property.type === "playAudio"}
                         <PlayAudioPropertyEditor
                             {property}
                             on:close={() => {

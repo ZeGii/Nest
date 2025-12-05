@@ -42,10 +42,11 @@ export interface SpaceInterface {
     dispatcher: SpaceToFrontDispatcherInterface;
     initSpace(): void;
     name: string;
-    handleWatch(watcher: Socket): void;
+    handleWatch(watcher: Socket): Promise<void>;
     handleUnwatch(watcher: Socket): void;
     isEmpty(): boolean;
     filterType: FilterType;
+    world: string;
     applyAndGetUpdatedFieldsForUserFromSetPlayerDetails(
         client: Socket,
         playerDetailsMessage: SetPlayerDetailsMessage
@@ -66,7 +67,7 @@ export interface SpaceInterface {
 export interface SpaceForSpaceConnectionInterface extends SpaceInterface {
     sendLocalUsersToBack(): void;
     setSpaceStreamToBack(spaceStreamToBack: Promise<BackSpaceConnection>): void;
-    handleConnectionRetryFailure(): void;
+    getPropertiesToSync(): string[];
 }
 
 export class Space implements SpaceForSpaceConnectionInterface {
@@ -77,11 +78,12 @@ export class Space implements SpaceForSpaceConnectionInterface {
     // The list of users connected to THIS pusher specifically
     public readonly _localConnectedUser: Map<string, Socket>;
     public readonly _localWatchers: Set<string> = new Set<string>();
-    public readonly _localConnectedUserWithSpaceUser = new Map<Socket, SpaceUser>();
+    public readonly _localConnectedUserWithSpaceUser = new Map<Socket, SpaceUserExtended>();
     public spaceStreamToBackPromise: Promise<BackSpaceConnection> | undefined;
     public readonly forwarder: SpaceToBackForwarderInterface;
     public readonly dispatcher: SpaceToFrontDispatcherInterface;
     public readonly query: Query;
+    private destroyed = false;
 
     constructor(
         public readonly name: string,
@@ -89,8 +91,10 @@ export class Space implements SpaceForSpaceConnectionInterface {
         public readonly localName: string,
         eventProcessor: EventProcessor,
         private _filterType: FilterType,
-        private _onSpaceEmpty: (space: SpaceInterface) => void,
+        private _unregisterSpace: (space: SpaceInterface) => void,
         private spaceConnection: SpaceConnectionInterface,
+        public readonly world: string,
+        private propertiesToSync: string[] = [],
         private SpaceToBackForwarderFactory: (space: Space) => SpaceToBackForwarderInterface = (space: Space) =>
             new SpaceToBackForwarder(space),
         private SpaceToFrontDispatcherFactory: (
@@ -110,7 +114,7 @@ export class Space implements SpaceForSpaceConnectionInterface {
     }
 
     public initSpace() {
-        this.spaceStreamToBackPromise = this.spaceConnection.getSpaceStreamToBackPromise(this);
+        this.setSpaceStreamToBack(this.spaceConnection.getSpaceStreamToBackPromise(this));
     }
 
     sendLocalUsersToBack() {
@@ -120,7 +124,7 @@ export class Space implements SpaceForSpaceConnectionInterface {
         this.forwarder.syncLocalUsersWithServer(localUsers);
     }
 
-    public handleWatch(watcher: Socket) {
+    public async handleWatch(watcher: Socket) {
         debug(`${this.name} : filter added for ${watcher.getUserData().userId}`);
 
         const spaceUser = this._localConnectedUserWithSpaceUser.get(watcher);
@@ -139,9 +143,9 @@ export class Space implements SpaceForSpaceConnectionInterface {
         this._localWatchers.add(spaceUser.spaceUserId);
         this._clientEventsEmitter.emitWatchSpace(this.name);
 
-        this.users.forEach((user) => {
-            this.dispatcher.notifyMeAddUser(watcher, user);
-        });
+        // Wait for the list of users to have been received from the back and then send all the users to the front
+        await this.dispatcher.notifyMeInit(watcher);
+        this.forwarder.addUserToNotify(spaceUser);
     }
 
     public handleUnwatch(watcher: Socket) {
@@ -150,6 +154,7 @@ export class Space implements SpaceForSpaceConnectionInterface {
             throw new Error("spaceUser not found");
         }
         this._localWatchers.delete(spaceUser.spaceUserId);
+        this.forwarder.deleteUserFromNotify(spaceUser);
         this._clientEventsEmitter.emitUnwatchSpace(this.name);
 
         debug(`${this.name} : filter removed for ${watcher.getUserData().userId}`);
@@ -163,21 +168,62 @@ export class Space implements SpaceForSpaceConnectionInterface {
      * Cleans up the space when the space is deleted (only useful when the space is empty)
      */
     public cleanup(): void {
+        if (this.destroyed) {
+            return;
+        }
+        this.destroyed = true;
         this.forwarder.leaveSpace();
         this.spaceConnection.removeSpace(this);
-        this._onSpaceEmpty(this);
-    }
-
-    /**
-     * Called when the retry to connect to the back server fails in SpaceConnection.
-     * This function should handle cleanup or notify the space that the connection cannot be established.
-     */
-    public handleConnectionRetryFailure() {
-        this._onSpaceEmpty(this);
+        this._unregisterSpace(this);
+        this.query.destroy();
     }
 
     public setSpaceStreamToBack(spaceStreamToBack: Promise<BackSpaceConnection>) {
         this.spaceStreamToBackPromise = spaceStreamToBack;
+        this.spaceStreamToBackPromise
+            .then((spaceStream) => {
+                let connectionCutCalled = false;
+                const onConnectionCut = () => {
+                    console.log("Connection to back cut for space", this.name);
+                    if (connectionCutCalled) {
+                        return;
+                    }
+                    connectionCutCalled = true;
+                    if (this.destroyed) {
+                        return;
+                    }
+                    //this.query.destroy();
+
+                    // Let's clean up the space and unregister it.
+                    this.cleanup();
+
+                    // Unregister the space from all local users
+                    for (const socket of this._localConnectedUser.values()) {
+                        socket.getUserData().spaces.delete(this.name);
+                    }
+
+                    // We notify the listeners and the users that the space has suffered an unexpected disconnection
+                    this.dispatcher.notifyAllIncludingNonWatchers({
+                        message: {
+                            $case: "spaceDestroyedMessage",
+                            spaceDestroyedMessage: {
+                                spaceName: this.localName,
+                            },
+                        },
+                    });
+                };
+                // No need to unregister the event listener, as when the space is destroyed, the spaceStream will be garbage collected
+                // eslint-disable-next-line listeners/no-missing-remove-event-listener
+                spaceStream.on("error", onConnectionCut);
+
+                // "end" is called when there is a timeout and we trigger locally the end of the connection.
+                // eslint-disable-next-line listeners/no-missing-remove-event-listener
+                spaceStream.on("end", onConnectionCut);
+            })
+            .catch((err) => {
+                console.error(`Failed to connect to space back for space ${this.name}:`, err);
+                this.query.destroy();
+            });
     }
 
     get filterType(): FilterType {
@@ -272,5 +318,9 @@ export class Space implements SpaceForSpaceConnectionInterface {
             changedFields: updateSpaceUserMessage.updateMask,
             partialSpaceUser: updateSpaceUserMessage.user,
         };
+    }
+
+    getPropertiesToSync(): string[] {
+        return this.propertiesToSync;
     }
 }

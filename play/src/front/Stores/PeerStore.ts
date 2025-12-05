@@ -1,94 +1,18 @@
-import { get, readable, writable } from "svelte/store";
-import * as Sentry from "@sentry/svelte";
-import type { VideoPeer } from "../WebRtc/VideoPeer";
-import type { ScreenSharingPeer } from "../WebRtc/ScreenSharingPeer";
+import { derived, writable } from "svelte/store";
+import { ForwardableStore } from "@workadventure/store-utils";
 import { localUserStore } from "../Connection/LocalUserStore";
+import { VideoBox } from "../Space/Space";
 
-/**
- * A generic store that contains the list of (video or screenSharing) peers we are connected to.
- */
-function createPeerStore<T>() {
-    const { subscribe, set, update } = writable(new Map<number, T>());
+export const videoStreamStore = new ForwardableStore<Map<string, VideoBox>>(new Map<string, VideoBox>());
+export const screenShareStreamStore = new ForwardableStore<Map<string, VideoBox>>(new Map<string, VideoBox>());
 
-    return {
-        subscribe,
-        getPeer(userId: number): T | undefined {
-            return get({ subscribe }).get(userId);
-        },
-        addPeer(userId: number, peer: T) {
-            update((users) => {
-                users.set(userId, peer);
-                return users;
-            });
-        },
-        removePeer(userId: number) {
-            update((users) => {
-                const peerConnectionDeleted = users.delete(userId);
-                if (!peerConnectionDeleted) {
-                    Sentry.captureException(new Error("Error deleting peer connection"));
-                }
-                return users;
-            });
-        },
-        cleanupStore() {
-            set(new Map<number, T>());
-        },
-        getSize(): number {
-            return get({ subscribe }).size;
-        },
-    };
-}
+export const videoStreamElementsStore = derived(videoStreamStore, ($videoStreamStore) => {
+    return Array.from($videoStreamStore.values());
+});
 
-export const peerStore = createPeerStore<VideoPeer>();
-export const screenSharingPeerStore = createPeerStore<ScreenSharingPeer>();
-
-/**
- * A store that contains ScreenSharingPeer, ONLY if those ScreenSharingPeer are emitting a stream towards us!
- */
-function createScreenSharingStreamStore() {
-    let peers = new Map<number, ScreenSharingPeer>();
-
-    return readable<Map<number, ScreenSharingPeer>>(peers, function start(set) {
-        let unsubscribes: (() => void)[] = [];
-
-        const unsubscribe = screenSharingPeerStore.subscribe((screenSharingPeers) => {
-            for (const unsubscribe of unsubscribes) {
-                unsubscribe();
-            }
-            unsubscribes = [];
-
-            peers = new Map<number, ScreenSharingPeer>();
-
-            screenSharingPeers.forEach((screenSharingPeer: ScreenSharingPeer, key: number) => {
-                if (screenSharingPeer.isReceivingScreenSharingStream()) {
-                    peers.set(key, screenSharingPeer);
-                }
-
-                unsubscribes.push(
-                    screenSharingPeer.streamStore.subscribe((stream) => {
-                        if (stream) {
-                            peers.set(key, screenSharingPeer);
-                        } else {
-                            peers.delete(key);
-                        }
-                        set(peers);
-                    })
-                );
-            });
-
-            set(peers);
-        });
-
-        return function stop() {
-            unsubscribe();
-            for (const unsubscribe of unsubscribes) {
-                unsubscribe();
-            }
-        };
-    });
-}
-
-export const screenSharingStreamStore = createScreenSharingStreamStore();
+export const screenShareStreamElementsStore = derived(screenShareStreamStore, ($screenShareStreamStore) => {
+    return Array.from($screenShareStreamStore.values());
+});
 
 export const volumeProximityDiscussionStore = writable(localUserStore.getVolumeProximityDiscussion());
 

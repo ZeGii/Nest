@@ -25,25 +25,31 @@ class AreaEditor {
   }
 
   async addProperty(page: Page, property: string) {
-    await page.locator('.map-editor');
-    await page.locator('.map-editor .sidebar');
-    await page.locator('.map-editor .sidebar .item-picker-container');
-    await page.locator('select#speakerZoneSelector');
+    page.locator('.map-editor');
+    page.locator('.map-editor .sidebar');
+    page.locator('.map-editor .sidebar .item-picker-container');
+    page.locator('select#speakerZoneSelector');
     await page.getByTestId(property).click();
   }
 
-  async setSpeakerMegaphoneProperty(page: Page, name: string) {
-    await page.getByPlaceholder("MySpeakerZone").click();
-    await page.getByPlaceholder("MySpeakerZone").fill(name);
-    await page.getByPlaceholder("MySpeakerZone").press("Enter");
+  async setPodiumNameProperty(page: Page, name: string , enableChat = false) {
+    await page.getByPlaceholder("MainStage").click();
+    await page.getByPlaceholder("MainStage").fill(name);
+    await page.getByPlaceholder("MainStage").press("Enter");
+    if(enableChat){
+      await page.getByTestId("chatEnabled").click();
+    }
   }
 
-  async setListenerZoneProperty(page: Page, name: string) {
+  async setMatchingPodiumZoneProperty(page: Page, name: string, enableChat = false) {
     await page
       .locator(
         ".map-editor .sidebar .properties-container select#speakerZoneSelector"
       )
       .selectOption({ label: name.toLowerCase() });
+    if(enableChat){
+      await page.getByTestId("chatEnabled").click();
+    }
   }
 
   async setAreaName(page: Page, name: string) {
@@ -86,14 +92,33 @@ class AreaEditor {
     readRights: string[]
   ) {
     await page.getByTestId("restrictedRightsPropertyData").click();
-    const writeRightsInput = await page.getByTestId("writeTags");
+    const writeRightsInput = page.getByTestId("writeTags");
     for (const writeRight of writeRights) {
       await this.fullFillAreaRight(writeRightsInput, writeRight);
     }
-    const readRightsInput = await page.getByTestId("readTags");
+    const readRightsInput = page.getByTestId("readTags");
     for (const readRight of readRights) {
       await this.fullFillAreaRight(readRightsInput, readRight);
     }
+  }
+
+  async setAreaLiveKitProperty(page: Page, startWithAudioMuted = false, startWithVideoMuted = false) {
+    await page.getByTestId("livekitRoomProperty").click();
+    if(!startWithAudioMuted && !startWithVideoMuted){
+      return; 
+    }
+
+    await page.getByTestId("livekitRoomMoreOptionsButton").click();
+
+    if(startWithVideoMuted){
+      await page.getByTestId("startWithVideoMuted").check();
+    }
+
+    if(startWithAudioMuted){
+      await page.getByTestId("startWithAudioMuted").check();
+    }
+
+    await page.getByTestId("livekitRoomConfigValidateButton").click(); //close the more options
   }
 
   async setOpenLinkProperty(page: Page, link: string, option = "Show immediately on enter") {
@@ -115,6 +140,7 @@ class AreaEditor {
 
   async setMatrixChatRoomProperty(page: Page,shouldOpenAutomatically: boolean, roomName?: string){
     //TODO : find a better way to wait for the room to be created
+    //eslint-disable-next-line playwright/no-wait-for-timeout
     await page.waitForTimeout(4000);
     await page.getByTestId("shouldOpenAutomaticallyCheckbox").click();
 
@@ -122,7 +148,8 @@ class AreaEditor {
       await page.getByPlaceholder("My room").isEnabled({timeout : 20_000});
       await page.getByPlaceholder("My room").fill(roomName,{timeout : 20_000});
     }
-        //TODO : find a better way to wait for the room to be created
+    //TODO : find a better way to wait for the room to be created
+    //eslint-disable-next-line playwright/no-wait-for-timeout
     await page.waitForTimeout(4000);
   }
 

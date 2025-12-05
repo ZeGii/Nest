@@ -22,6 +22,7 @@ import {
     SENTRY_TRACES_SAMPLE_RATE,
     SENTRY_ENVIRONMENT,
     GRPC_MAX_MESSAGE_SIZE,
+    BODY_PARSER_JSON_SIZE_LIMIT,
 } from "./Enum/EnvironmentVariable";
 
 // Sentry integration
@@ -72,8 +73,8 @@ server.bindAsync(`0.0.0.0:50053`, grpc.ServerCredentials.createInsecure(), (err,
     if (err) {
         throw err;
     }
-    console.log(`[${new Date().toISOString()}] Application is running`);
-    console.log(`[${new Date().toISOString()}] gRPC port is 50053`);
+    console.info(`[${new Date().toISOString()}] Application is running`);
+    console.info(`[${new Date().toISOString()}] gRPC port is 50053`);
     server.start();
 });
 
@@ -88,6 +89,7 @@ app.use((request, response, next) => {
 app.use(
     bodyParser.json({
         type: ["application/json", "application/json-patch+json"],
+        limit: BODY_PARSER_JSON_SIZE_LIMIT,
     })
 );
 
@@ -96,8 +98,8 @@ for (const passportStrategy of passportStrategies) {
 }
 app.use(passport.initialize());
 
-app.get("*.wam", (req, res, next) => {
-    const wamPath = req.url;
+app.get(/.*\.wam$/, (req, res, next) => {
+    const wamPath = req.path;
     const domain = req.hostname;
     if (wamPath.includes("..") || domain.includes("..")) {
         res.status(400).send("Invalid request");
@@ -132,7 +134,7 @@ new ValidatorController(app);
 new PingController(app);
 
 app.get(
-    "/private/files/*",
+    "/private/files/{*splat}",
     (req, res, next) => {
         Promise.resolve(verifyJWT(req, res, next)).catch(next);
     },
@@ -144,11 +146,11 @@ app.use(proxyFiles(fileSystem));
 // Check that the dist-ui directory exists
 if (fs.existsSync("dist-ui")) {
     app.use("/ui", express.static("dist-ui"));
-    app.get("/ui/*", (req, res) => {
+    app.get("/ui/{*splat}", (req, res, next) => {
         res.sendFile("index.html", { root: "dist-ui" });
     });
 }
 
 app.listen(3000, () => {
-    console.log(`[${new Date().toISOString()}] Application is running on port 3000`);
+    console.info(`[${new Date().toISOString()}] Application is running on port 3000`);
 });

@@ -5,6 +5,49 @@ import { RoomConnection } from "../../Connection/RoomConnection";
 import { Space } from "../Space";
 import { SpaceUserExtended } from "../SpaceInterface";
 
+const defaultRoomConnectionMock = {
+    emitUserJoinSpace: vi.fn(),
+    emitAddSpaceFilter: vi.fn(),
+    emitJoinSpace: vi.fn(),
+    emitRemoveSpaceFilter: vi.fn(),
+} as unknown as RoomConnection;
+
+// const defaultPeerStoreMock = {
+//     getSpaceStore: vi.fn(),
+//     removePeer: vi.fn(),
+//     getPeer: vi.fn(),
+// };
+
+// Mock the PeerStore module
+vi.mock("../../Stores/PeerStore", () => ({
+    screenSharingPeerStore: {
+        getSpaceStore: vi.fn(),
+        removePeer: vi.fn(),
+        getPeer: vi.fn(),
+    },
+    videoStreamStore: {
+        subscribe: vi.fn().mockImplementation((fn: (v: unknown) => void) => {
+            // send a default value immediately
+            fn([]);
+            return () => {};
+        }),
+    },
+    videoStreamElementsStore: {
+        subscribe: vi.fn().mockImplementation((fn: (v: unknown[]) => void) => {
+            // send a default value immediately
+            fn([]);
+            return () => {};
+        }),
+    },
+    screenShareStreamElementsStore: {
+        subscribe: vi.fn().mockImplementation((fn: (v: unknown[]) => void) => {
+            // send a default value immediately
+            fn([]);
+            return () => {};
+        }),
+    },
+}));
+
 vi.mock("../../Phaser/Entity/CharacterLayerManager", () => {
     return {
         CharacterLayerManager: {
@@ -18,17 +61,37 @@ vi.mock("../../Phaser/Entity/CharacterLayerManager", () => {
 vi.mock("../../Phaser/Game/GameManager", () => {
     return {
         gameManager: {
-            getCurrentGameScene: () => ({}),
+            getCurrentGameScene: () => ({
+                getRemotePlayersRepository: vi.fn(),
+            }),
         },
     };
 });
+// Mock SimplePeer
+vi.mock("../../WebRtc/SimplePeer", () => ({
+    SimplePeer: vi.fn().mockImplementation(() => ({
+        closeAllConnections: vi.fn(),
+        destroy: vi.fn(),
+    })),
+}));
 
-const defaultRoomConnectionMock = {
-    emitUserJoinSpace: vi.fn(),
-    emitAddSpaceFilter: vi.fn(),
-    emitJoinSpace: vi.fn(),
-    emitRemoveSpaceFilter: vi.fn(),
-} as unknown as RoomConnection;
+vi.mock("../../Enum/EnvironmentVariable.ts", () => {
+    return {
+        MATRIX_ADMIN_USER: "admin",
+        MATRIX_DOMAIN: "domain",
+        STUN_SERVER: "stun:test.com:19302",
+        TURN_SERVER: "turn:test.com:19302",
+        TURN_USER: "user",
+        TURN_PASSWORD: "password",
+        POSTHOG_API_KEY: "test-api-key",
+        POSTHOG_URL: "https://test.com",
+        MAX_USERNAME_LENGTH: 10,
+        PEER_SCREEN_SHARE_RECOMMENDED_BANDWIDTH: 1000,
+        PEER_VIDEO_RECOMMENDED_BANDWIDTH: 1000,
+    };
+});
+
+const signal = new AbortController().signal;
 
 describe("SpaceFilter", () => {
     describe("addUser", () => {
@@ -38,14 +101,18 @@ describe("SpaceFilter", () => {
                 "space-name",
                 FilterType.ALL_USERS,
                 defaultRoomConnectionMock,
-                new Map<string, unknown>()
+                [],
+                signal,
+                {
+                    metadata: new Map<string, unknown>(),
+                }
             );
             const spaceUserId = "foo_0";
             const user: Pick<SpaceUserExtended, "spaceUserId"> = {
                 spaceUserId,
             };
 
-            await space.addUser(user as SpaceUserExtended);
+            space.addUser(user as SpaceUserExtended);
             expect(get(space.usersStore).has(user.spaceUserId)).toBeTruthy();
         });
 
@@ -54,15 +121,19 @@ describe("SpaceFilter", () => {
                 "space-name",
                 FilterType.ALL_USERS,
                 defaultRoomConnectionMock,
-                new Map<string, unknown>()
+                [],
+                signal,
+                {
+                    metadata: new Map<string, unknown>(),
+                }
             );
             const spaceUserId = "foo_1";
 
-            await space.addUser({
+            space.addUser({
                 spaceUserId,
                 name: "user-name",
             } as unknown as SpaceUserExtended);
-            await space.addUser({
+            space.addUser({
                 spaceUserId,
                 name: "user-name-overloaded",
             } as unknown as SpaceUserExtended);
@@ -79,7 +150,11 @@ describe("SpaceFilter", () => {
                 "space-name",
                 FilterType.ALL_USERS,
                 defaultRoomConnectionMock,
-                new Map<string, unknown>()
+                [],
+                signal,
+                {
+                    metadata: new Map<string, unknown>(),
+                }
             );
             const spaceUserId = "";
 
@@ -94,7 +169,7 @@ describe("SpaceFilter", () => {
                 roomName: "world",
             } as SpaceUserExtended;
 
-            await space.addUser(user as SpaceUserExtended);
+            space.addUser(user as SpaceUserExtended);
             space.updateUserData(newData, ["name", "availabilityStatus", "roomName"]);
 
             const storedUser = get(space.usersStore).get(spaceUserId);
@@ -107,7 +182,11 @@ describe("SpaceFilter", () => {
                 "space-name",
                 FilterType.ALL_USERS,
                 defaultRoomConnectionMock,
-                new Map<string, unknown>()
+                [],
+                signal,
+                {
+                    metadata: new Map<string, unknown>(),
+                }
             );
             const spaceUserId = "";
 
@@ -128,7 +207,7 @@ describe("SpaceFilter", () => {
                 ...newData,
             };
 
-            await space.addUser(user as SpaceUserExtended);
+            space.addUser(user as SpaceUserExtended);
             space.updateUserData(newData, ["name", "availabilityStatus", "roomName"]);
 
             const updatedUser = get(space.usersStore).get(spaceUserId);
@@ -143,7 +222,8 @@ describe("SpaceFilter", () => {
                 "space-name",
                 FilterType.ALL_USERS,
                 defaultRoomConnectionMock,
-                new Map<string, unknown>()
+                [],
+                new AbortController().signal
             );
             const spaceUserId = "";
 
@@ -159,7 +239,7 @@ describe("SpaceFilter", () => {
                 roomName: "world",
             } as SpaceUser;
 
-            await space.addUser(user as SpaceUserExtended);
+            space.addUser(user as SpaceUserExtended);
             space.updateUserData(newData, ["name", "availabilityStatus", "roomName"]);
 
             const updatedUser = get(space.usersStore).get(spaceUserId);
@@ -180,7 +260,11 @@ describe("SpaceFilter", () => {
                 "space-name",
                 FilterType.ALL_USERS,
                 mockRoomConnection as unknown as RoomConnection,
-                new Map<string, unknown>()
+                [],
+                signal,
+                {
+                    metadata: new Map<string, unknown>(),
+                }
             );
 
             const unsubscribe = space.usersStore.subscribe(() => {});
@@ -208,7 +292,11 @@ describe("SpaceFilter", () => {
                 "space-name",
                 FilterType.ALL_USERS,
                 mockRoomConnection as unknown as RoomConnection,
-                new Map<string, unknown>()
+                [],
+                signal,
+                {
+                    metadata: new Map<string, unknown>(),
+                }
             );
 
             const unsubscribe = space.usersStore.subscribe(() => {});

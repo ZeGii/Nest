@@ -1,6 +1,6 @@
 import { get } from "svelte/store";
 import type { UserInputManager } from "../Phaser/UserInput/UserInputManager";
-import { localStreamStore } from "../Stores/MediaStore";
+import { stableLocalStreamStore } from "../Stores/MediaStore";
 import { screenSharingLocalStreamStore } from "../Stores/ScreenSharingStore";
 import { showHelpCameraSettings } from "../Stores/HelpSettingsStore";
 import {
@@ -25,13 +25,12 @@ export class MediaManager {
     constructor() {
         localeDetector()
             .catch((e) => {
-                console.error(e);
-                throw new Error("Cannot load locale on media manager");
+                console.error("Cannot load locale on media manager", e);
             })
             .finally(() => {
                 // It is ok to not unsubscribe to this store because it is a singleton.
                 // eslint-disable-next-line svelte/no-ignored-unsubscribe
-                localStreamStore.subscribe((result) => {
+                stableLocalStreamStore.subscribe((result) => {
                     if (result.type === "error") {
                         if (result.error.name !== MediaStreamConstraintsError.NAME && get(myCameraStore)) {
                             showHelpCameraSettings();

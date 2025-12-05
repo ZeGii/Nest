@@ -4,20 +4,15 @@ import { publicTestMapUrl } from "./utils/urls";
 import { getPage } from './utils/auth';
 import Menu from "./utils/menu";
 
-test.describe('Scripting space-related functions', () => {
+test.describe('Scripting space-related functions @nowebkit', () => {
 
     test('can join and watch space', async ({ browser, browserName }, { project }) => {
-        if (browserName === "webkit") {
-            // eslint-disable-next-line playwright/no-skipped-test
-            test.skip();
-            return;
-        }
-        const page = await getPage(browser, 'Alice', publicTestMapUrl("tests/E2E/empty.json", "scripting_space_related"));
+        await using page = await getPage(browser, 'Alice', publicTestMapUrl("tests/E2E/empty.json", "scripting_space_related"));
 
         await evaluateScript(page, async () => {
             await WA.player.teleport(1, 1);
             window.userCount = 0;
-            window.mySpace = await WA.spaces.joinSpace("some-test-space", "everyone");
+            window.mySpace = await WA.spaces.joinSpace("some-test-space", "everyone",[]);
             window.mySpace.userJoinedObservable.subscribe((user) => {
                 window.userCount++;
                 window.lastJoinedUser = user;
@@ -33,7 +28,7 @@ test.describe('Scripting space-related functions', () => {
 
         // Bob joins the same space
         await evaluateScript(bob, async () => {
-            window.mySpace = await WA.spaces.joinSpace("some-test-space", "everyone");
+            window.mySpace = await WA.spaces.joinSpace("some-test-space", "everyone",[]);
         });
 
         // User count in the space should now be 2
@@ -58,7 +53,7 @@ test.describe('Scripting space-related functions', () => {
 
         // Bob joins the first time
         await evaluateScript(bob, async () => {
-            window.mySpace = await WA.spaces.joinSpace("some-test-space", "everyone");
+            window.mySpace = await WA.spaces.joinSpace("some-test-space", "everyone",[]);
         });
 
         // User count in the space should now be 2
@@ -68,7 +63,7 @@ test.describe('Scripting space-related functions', () => {
 
         // Bob joins the same space again
         await evaluateScript(bob, async () => {
-            window.mySpace2 = await WA.spaces.joinSpace("some-test-space", "everyone");
+            window.mySpace2 = await WA.spaces.joinSpace("some-test-space", "everyone",[]);
         });
 
         // User count in the space should still be 2, as Bob is already in the space
@@ -102,7 +97,7 @@ test.describe('Scripting space-related functions', () => {
 
         // Bob joins again
         await evaluateScript(bob, async () => {
-            window.mySpace = await WA.spaces.joinSpace("some-test-space", "everyone");
+            window.mySpace = await WA.spaces.joinSpace("some-test-space", "everyone",[]);
         });
 
         // User count in the space should still be 2, as Bob is already in the space
@@ -120,7 +115,7 @@ test.describe('Scripting space-related functions', () => {
         })).toBe(1);
 
         // Bob clicks on the "Do not disturb" status
-        await Menu.openStatusList(bob, false);
+        await Menu.openMenu(bob);
         await Menu.clickOnStatus(bob, "Do not disturb");
 
         // We expect Bob's status to be "Do not disturb"
@@ -143,13 +138,17 @@ test.describe('Scripting space-related functions', () => {
             window.mySpace.leave();
         });
 
+        // FIXME: remove this timeout when the Livekit branch is merged (the issue is fixed in the Livekit branch)
+        // eslint-disable-next-line playwright/no-wait-for-timeout
+        await page.waitForTimeout(1000);
+
         /**
          * Test part 4: Let's do the same test with a livestream space.
          */
 
         await evaluateScript(page, async () => {
             window.userCount = 0;
-            window.mySpace = await WA.spaces.joinSpace("some-test-space", "streaming");
+            window.mySpace = await WA.spaces.joinSpace("some-test-space", "streaming",[]);
             window.mySpace.userJoinedObservable.subscribe((user) => {
                 window.userCount++;
                 window.lastJoinedUser = user;
@@ -163,7 +162,7 @@ test.describe('Scripting space-related functions', () => {
 
         // Bob joins the same space
         await evaluateScript(bob, async () => {
-            window.mySpace = await WA.spaces.joinSpace("some-test-space", "streaming");
+            window.mySpace = await WA.spaces.joinSpace("some-test-space", "streaming",[]);
         });
 
         // Bob does not stream, still no one in the space
@@ -183,28 +182,23 @@ test.describe('Scripting space-related functions', () => {
 
         await bob.close();
         await bob.context().close();
+
         await page.close();
         await page.context().close();
     });
 
     test('cannot join a space with a different filter on the same browser', async ({ browser, context, browserName }, { project }) => {
-        if (browserName === "webkit") {
-            // eslint-disable-next-line playwright/no-skipped-test
-            test.skip();
-            return;
-        }
-
         // Get all open pages in the context
         const pages = context.pages();
         await expect.poll(() => pages.length).toBe(0);
 
-        const page = await getPage(browser, 'Alice', publicTestMapUrl("tests/E2E/empty.json", "scripting_space_related"));
+        await using page = await getPage(browser, 'Alice', publicTestMapUrl("tests/E2E/empty.json", "scripting_space_related"));
 
         expect(
             await evaluateScript(page, async () => {
-                await WA.spaces.joinSpace("some-test-space", "everyone");
+                await WA.spaces.joinSpace("some-test-space", "everyone",[]);
                 try {
-                    await WA.spaces.joinSpace("some-test-space", "streaming");
+                    await WA.spaces.joinSpace("some-test-space", "streaming",[]);
                 } catch (e) {
                     return e.message;
                 }
@@ -212,28 +206,23 @@ test.describe('Scripting space-related functions', () => {
             })
         ).toContain("Cannot join space some-test-space");
 
+
         await page.close();
         await page.context().close();
     });
 
     test('cannot join a space with a different filter in 2 browsers', async ({ browser, context, browserName }, { project }) => {
-
-        if (browserName === "webkit") {
-            // eslint-disable-next-line playwright/no-skipped-test
-            test.skip();
-            return;
-        }
         // Get all open pages in the context
 
         const pages = context.pages();
 
         await expect.poll(() => pages.length).toBe(0);
 
-        const page = await getPage(browser, 'Alice', publicTestMapUrl("tests/E2E/empty.json", "scripting_space_related"));
+        await using page = await getPage(browser, 'Alice', publicTestMapUrl("tests/E2E/empty.json", "scripting_space_related"));
 
         await evaluateScript(page, async () => {
             await WA.player.teleport(1, 1);
-            await WA.spaces.joinSpace("some-test-space", "everyone");
+            await WA.spaces.joinSpace("some-test-space", "everyone",[]);
         });
 
         const bob = await getPage(browser, 'Bob', publicTestMapUrl("tests/E2E/empty.json", "scripting_space_related"));
@@ -241,7 +230,7 @@ test.describe('Scripting space-related functions', () => {
         expect(
             await evaluateScript(bob, async () => {
                 try {
-                    await WA.spaces.joinSpace("some-test-space", "streaming");
+                    await WA.spaces.joinSpace("some-test-space", "streaming",[]);
                 } catch (e) {
                     return e.message;
                 }
@@ -251,26 +240,22 @@ test.describe('Scripting space-related functions', () => {
 
         await bob.close();
         await bob.context().close();
+
         await page.close();
         await page.context().close();
     });
 
     test('can join a livestream space and see the user when it starts streaming', async ({ browser, context, browserName }, { project }) => {
-        if (browserName === "webkit") {
-            // eslint-disable-next-line playwright/no-skipped-test
-            test.skip();
-            return;
-        }
         const pages = context.pages();
 
         await expect.poll(() => pages.length).toBe(0);
 
-        const page = await getPage(browser, 'Alice', publicTestMapUrl("tests/E2E/empty.json", "scripting_space_related"));
+        await using page = await getPage(browser, 'Alice', publicTestMapUrl("tests/E2E/empty.json", "scripting_space_related"));
 
         await evaluateScript(page, async () => {
             await WA.player.teleport(1, 1);
             window.userCount = 0;
-            window.mySpace = await WA.spaces.joinSpace("some-test-space", "streaming");
+            window.mySpace = await WA.spaces.joinSpace("some-test-space", "streaming",[]);
             window.mySpace.userJoinedObservable.subscribe((user) => {
                 window.userCount++;
                 window.lastJoinedUser = user;
@@ -281,7 +266,7 @@ test.describe('Scripting space-related functions', () => {
         // Bob joins the same space
         const bob = await getPage(browser, 'Bob', publicTestMapUrl("tests/E2E/empty.json", "scripting_space_related"));
         await evaluateScript(bob, async () => {
-            window.mySpace = await WA.spaces.joinSpace("some-test-space", "streaming");
+            window.mySpace = await WA.spaces.joinSpace("some-test-space", "streaming",[]);
         });
 
         // User count in the space should now be 1
@@ -321,24 +306,20 @@ test.describe('Scripting space-related functions', () => {
 
     });
 
-    test('should reconnect to a space when backend is restarted', async ({ browser, context, browserName }, { project }) => {
-        if (browserName === "webkit") {
-            // eslint-disable-next-line playwright/no-skipped-test
-            test.skip();
-            return;
-        }
+    test('should reconnect to a space when backend is restarted @local @selfsigned', async ({ browser, context, browserName }, { project }) => {
         const pages = context.pages();
 
         await expect.poll(() => pages.length).toBe(0);
 
         const apiContext = await request.newContext();
 
-        const page = await getPage(browser, 'Alice', publicTestMapUrl("tests/E2E/empty.json", "scripting_space_related"));
+        await using page = await getPage(browser, 'Alice', publicTestMapUrl("tests/E2E/empty.json", "scripting_space_related"));
 
+        // Alice joins a "streaming" space
         await evaluateScript(page, async () => {
             await WA.player.teleport(1, 1);
             window.userCount = 0;
-            window.mySpace = await WA.spaces.joinSpace("some-test-space", "streaming");
+            window.mySpace = await WA.spaces.joinSpace("some-test-space", "streaming",[]);
             window.mySpace.userJoinedObservable.subscribe((user) => {
                 window.userCount++;
                 window.lastJoinedUser = user;
@@ -349,7 +330,7 @@ test.describe('Scripting space-related functions', () => {
         // Bob joins the same space
         const bob = await getPage(browser, 'Bob', publicTestMapUrl("tests/E2E/empty.json", "scripting_space_related"));
         await evaluateScript(bob, async () => {
-            window.mySpace = await WA.spaces.joinSpace("some-test-space", "streaming");
+            window.mySpace = await WA.spaces.joinSpace("some-test-space", "streaming",[]);
         });
 
         // User count in the space should now be 0
@@ -371,6 +352,7 @@ test.describe('Scripting space-related functions', () => {
         // This simulates a backend restart, as the space connection will be closed
         await apiContext.post('http://api.workadventure.localhost/debug/close-space-connection?spaceName=localWorld.some-test-space&token=123');
 
+        //eslint-disable-next-line playwright/no-wait-for-timeout
         await page.waitForTimeout(5000);
 
         // Alice should see Bob's user
@@ -395,4 +377,48 @@ test.describe('Scripting space-related functions', () => {
         await page.context().close();
 
     });
+
+    test('should receive metadata when you join a space', async ({ browser, context, browserName }, { project }) => {
+        const pages = context.pages();
+
+        await expect.poll(() => pages.length).toBe(0);
+
+        await using page = await getPage(browser, 'Alice', publicTestMapUrl("tests/E2E/empty.json", "scripting_space_related_metadata"));
+
+        await evaluateScript(page, async () => {
+            await WA.player.teleport(1, 1);
+            window.mySpace = await WA.spaces.joinSpace("some-test-space", "everyone", []);
+            window.mySpace.setMetadata(new Map([["hello", "world"]]));
+        });
+
+        // Bob joins the same space
+        const bob = await getPage(browser, 'Bob', publicTestMapUrl("tests/E2E/empty.json", "scripting_space_related_metadata"));
+        await evaluateScript(bob, async () => {
+            window.mySpace = await WA.spaces.joinSpace("some-test-space", "everyone",[]);
+            await new Promise(resolve => {
+                window.mySpace.metadataObservable.subscribe((metadata) => {
+                    console.log("Bob received metadata:", metadata);
+                    if(metadata.get("hello") === "world"){
+                        window.receivedMetadata = metadata;
+                        resolve(true);
+                    }
+                });
+            });
+        });
+
+        // Bob should have received the metadata
+        await expect.poll(() => evaluateScript(bob, async () => {
+            console.log("Checking metadata on Bob's page...");
+            console.log("Received metadata:", window.receivedMetadata);
+            return window.receivedMetadata?.get("hello");
+        })).toBe("world");
+
+        await bob.close();
+        await bob.context().close();
+        
+        await page.close();
+        await page.context().close();
+
+    });
+
 });

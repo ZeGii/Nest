@@ -8,7 +8,6 @@ import LL from "../../../i18n/i18n-svelte";
 import { currentLiveStreamingSpaceStore } from "../../Stores/MegaphoneStore";
 import { chatZoneLiveStore } from "../../Stores/ChatStore";
 import { gameManager } from "../../Phaser/Game/GameManager";
-import { peerStore } from "../../Stores/PeerStore";
 import { popupStore } from "../../Stores/PopupStore";
 import MuteDialogPopup from "../../Components/PopUp/MuteDialogPopup.svelte";
 
@@ -76,7 +75,7 @@ export function bindMuteEventsToSpace(space: SpaceInterface): void {
             requestedMicrophoneState.disableMicrophone();
         } else {
             notificationPlayingStore.playNotification(get(LL).notification.askToMuteMicrophone(), "microphone-off.png");
-            displayMuteDialog(event, space);
+            displayMuteDialog({ ...event, sender: event.sender.spaceUserId }, space);
         }
     });
 
@@ -88,7 +87,7 @@ export function bindMuteEventsToSpace(space: SpaceInterface): void {
             requestedCameraState.disableWebcam();
         } else {
             notificationPlayingStore.playNotification(get(LL).notification.askToMuteCamera(), "camera-off.png");
-            displayMuteDialog(event, space);
+            displayMuteDialog({ ...event, sender: event.sender.spaceUserId }, space);
         }
     });
 
@@ -98,15 +97,14 @@ export function bindMuteEventsToSpace(space: SpaceInterface): void {
     space.observePrivateEvent("kickOffUser").subscribe((event) => {
         isSpeakerStore.set(false);
         currentLiveStreamingSpaceStore.set(undefined);
+
         const scene = gameManager.getCurrentGameScene();
-        scene.broadcastService.leaveSpace(event.spaceName).catch((e) => {
+        const spaceRegistry = scene.spaceRegistry;
+        spaceRegistry.leaveSpace(space).catch((e) => {
             console.error("Error while leaving space", e);
             Sentry.captureException(e);
         });
         chatZoneLiveStore.set(false);
-        // Close all connection simple peer
-        scene.getSimplePeer().closeAllConnections();
-        peerStore.cleanupStore();
     });
 
     // We can safely ignore the subscription because it will be automatically completed when the space is destroyed.

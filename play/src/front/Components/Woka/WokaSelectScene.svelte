@@ -7,6 +7,8 @@
     import ShuffleIcon from "../Icons/ShuffleIcon.svelte";
     import WokaPreview from "./WokaPreview.svelte";
     import type { WokaCollection, WokaData, WokaTexture } from "./WokaTypes";
+    import { getItemsPerRow } from "./ItemsPerRow";
+    import WokaImage from "./WokaImage.svelte";
 
     export let customize: () => void;
     export let saveAndContinue: (texturesId: string[]) => void;
@@ -34,7 +36,6 @@
             }
 
             wokaData = await response.json();
-            console.log("Woka data loaded:", wokaData);
 
             loadSavedTextures();
         } catch (err) {
@@ -92,7 +93,6 @@
             throw new Error(`Collection ${collectionName} does not exist in the Woka data`);
         }
         currentWokaCollection = collection;
-        console.log("Current Woka collection selected:", currentWokaCollection);
     }
 
     function selectTexture(collectionIndex: number, textureId: string) {
@@ -128,6 +128,8 @@
         return `${ABSOLUTE_PUSHER_URL}${relativeUrl}`;
     }
 
+    let enterPressed = false;
+
     // Function to validate character textures
     function useKeyBoardNavigation(event: KeyboardEvent) {
         if (!wokaData || !currentWokaCollection) return;
@@ -138,40 +140,64 @@
             event.key === "ArrowDown"
         ) {
             event.preventDefault();
-            const currentIndex = wokaData?.["woka"]?.collections.findIndex(
+            const currentCollectionIndex = wokaData?.["woka"]?.collections.findIndex(
                 (c: WokaCollection) => c.name === currentWokaCollection?.name
             );
-            if (currentIndex === undefined || currentIndex < 0) return;
+            if (currentCollectionIndex === undefined || currentCollectionIndex < 0) return;
 
-            const textures = wokaData["woka"].collections[currentIndex].textures;
+            const textures = wokaData["woka"].collections[currentCollectionIndex].textures;
             const currentTextureIndex = textures.findIndex((t: WokaTexture) => t.id === selectedWokaTextureId["woka"]);
 
-            if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
-                const newIndex = (currentTextureIndex - 1 + textures.length) % textures.length;
-                selectTexture(currentIndex, textures[newIndex].id);
-            } else if (event.key === "ArrowRight" || event.key === "ArrowDown") {
-                const newIndex = (currentTextureIndex + 1) % textures.length;
-                selectTexture(currentIndex, textures[newIndex].id);
+            let newIndex = currentCollectionIndex;
+            if (event.key === "ArrowLeft") {
+                newIndex = Math.max(currentTextureIndex - 1, 0);
+            } else if (event.key === "ArrowRight") {
+                newIndex = Math.min(currentTextureIndex + 1, textures.length - 1);
+            } else if (event.key === "ArrowUp") {
+                const itemsPerRow = getItemsPerRow(document.getElementById(`woka-line-0`));
+                newIndex = Math.max(currentTextureIndex - itemsPerRow, 0);
+            } else if (event.key === "ArrowDown") {
+                const itemsPerRow = getItemsPerRow(document.getElementById(`woka-line-0`));
+                newIndex = Math.min(currentTextureIndex + itemsPerRow, textures.length - 1);
             }
+            if (newIndex !== currentTextureIndex) {
+                selectTexture(currentCollectionIndex, textures[newIndex].id);
+                // Scroll to the newly selected texture
+                const element = document.getElementById(`woka-${textures[newIndex].id}`);
+                if (element) {
+                    element.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
+                }
+            }
+        } else if (event.key === "Enter") {
+            enterPressed = true;
         }
-        if (event.key === "Enter") {
+    }
+
+    function useKeyBoardNavigationUp(event: KeyboardEvent) {
+        if (!wokaData || !currentWokaCollection) return;
+        if (event.key === "Enter" && enterPressed) {
+            enterPressed = false;
             saveAndContinue([selectedWokaTextureId["woka"]]); // Save and continue when Enter is pressed
         }
     }
 
-    onMount(async () => {
-        await loadWokaData();
+    onMount(() => {
+        loadWokaData().catch((err) => {
+            console.error("Error in onMount while loading Woka data:", err);
+        });
         document.addEventListener("keydown", useKeyBoardNavigation);
+        document.addEventListener("keyup", useKeyBoardNavigationUp);
     });
 
     onDestroy(() => {
         document.removeEventListener("keydown", useKeyBoardNavigation);
+        document.removeEventListener("keyup", useKeyBoardNavigationUp);
     });
 </script>
 
-<div class="bg-contrast w-screen h-screen absolute flex items-center justify-center">
+<div class="mobile-webkit bg-contrast w-screen md:!mt-[15vh] h-full md:!h-[70vh] flex items-center justify-center">
     <div
-        class="rounded-lg flex flex-col max-w-4xl w-full mx-4 h-[98vh] sm:h-[70vh] relative bg-white/10 backdrop-blur-md"
+        class="mobile-webkit rounded-lg flex flex-col max-w-4xl w-full h-full m-4 relative bg-white/10 backdrop-blur-md"
     >
         {#if isLoading}
             <div class="flex items-center justify-center h-64">
@@ -230,14 +256,13 @@
                                             id="woka-{texture.id}"
                                             on:click={() => selectTexture(collectionIndex, texture.id)}
                                         >
-                                            <div class="p-2 bg-white/10 rounded flex items-center justify-center">
-                                                <div
-                                                    class="w-[64px] h-[64px] bg-no-repeat"
-                                                    style="background-image: url('{getTextureUrl(
-                                                        texture.url
-                                                    )}'); background-size: calc(3 * 64px) calc(4 * 64px); background-position: 0px calc(-1 * {assetsDirection} * 64px); image-rendering: pixelated;"
-                                                />
-                                            </div>
+                                            <WokaImage
+                                                selectedTextures={{ woka: texture.id }}
+                                                {wokaData}
+                                                {getTextureUrl}
+                                                classList="p-2"
+                                                direction={assetsDirection}
+                                            />
                                         </button>
                                     {/each}
                                 </div>
@@ -265,6 +290,9 @@
 </div>
 
 <style>
+    .mobile-webkit {
+        max-height: -webkit-fill-available !important;
+    }
     .scroll-mask {
         mask-image: linear-gradient(to bottom, transparent 0px, black 40px, black calc(100% - 40px), transparent 100%);
         -webkit-mask-image: linear-gradient(

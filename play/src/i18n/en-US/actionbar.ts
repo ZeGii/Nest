@@ -6,7 +6,7 @@ const actionbar: BaseTranslation = {
     cancel: "Cancel",
     close: "Close",
     login: "Login",
-    map: "Map",
+    map: "Build",
     profil: "Edit your name",
     startScreenSharing: "Start screen sharing",
     stopScreenSharing: "Stop screen sharing",
@@ -32,10 +32,21 @@ const actionbar: BaseTranslation = {
     camera: {
         disabled: "Your camera is disabled",
         activate: "Activate your camera",
+        noDevices: "No camera device found",
+        setBackground: "Set background",
+        blurEffects: "Blur effects",
+        disableBackgroundEffects: "Disable background effects",
+        close: "Close",
     },
     microphone: {
         disabled: "Your microphone is disabled",
         activate: "Activate your microphone",
+        noDevices: "No microphone device found",
+    },
+    speaker: {
+        disabled: "Your speaker is disabled",
+        activate: "Activate your speaker",
+        noDevices: "No speaker device found",
     },
     status: {
         ONLINE: "Online",
@@ -49,6 +60,8 @@ const actionbar: BaseTranslation = {
         BBB: "In a meeting",
         DENY_PROXIMITY_MEETING: "Not available",
         SPEAKER: "In a meeting",
+        LIVEKIT: "In a meeting",
+        LISTENER: "In a meeting",
     },
     subtitle: {
         camera: "Camera",
@@ -137,5 +150,22 @@ const actionbar: BaseTranslation = {
         },
     },
     featureNotAvailable: "Feature not available for your room 😭",
+    issueReport: {
+        menuAction: "Report an issue",
+        formTitle: "Report an issue",
+        emailLabel: "Email (not required)",
+        nameLabel: "Name (not required)",
+        descriptionLabel: "Description* (required)",
+        descriptionPlaceholder: "What's the issue? What did you expect?",
+        submitButtonLabel: "Send Bug Report",
+        cancelButtonLabel: "Cancel",
+        confirmButtonLabel: "Confirm",
+        addScreenshotButtonLabel: "Add a Screenshot",
+        removeScreenshotButtonLabel: "Remove Screenshot",
+        successMessageText: "Thank you for your report! We will review it as soon as possible.",
+        highlightToolText: "Highlight",
+        hideToolText: "Hide",
+        removeHighlightText: "Remove",
+    },
 };
 export default actionbar;

@@ -2,13 +2,12 @@ import { get, Readable, derived, readable, writable } from "svelte/store";
 import type { DesktopCapturerSource } from "../Interfaces/DesktopAppInterfaces";
 import { localUserStore } from "../Connection/LocalUserStore";
 import LL from "../../i18n/i18n-svelte";
-import { SpaceUserExtended } from "../Space/SpaceInterface";
-import { peerStore } from "./PeerStore";
-import type { LocalStreamStoreValue } from "./MediaStore";
+import { isSpeakerStore, type LocalStreamStoreValue } from "./MediaStore";
 import { inExternalServiceStore, myCameraStore, myMicrophoneStore } from "./MyMediaStore";
 import type {} from "../Api/Desktop";
-import { Streamable } from "./StreamableCollectionStore";
-import { currentPlayerWokaStore } from "./CurrentPlayerWokaStore";
+import { Streamable, WebRtcStreamable } from "./StreamableCollectionStore";
+import { screenShareStreamElementsStore, videoStreamElementsStore } from "./PeerStore";
+import { muteMediaStreamStore } from "./MuteMediaStreamStore";
 
 declare const navigator: any; // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -62,8 +61,27 @@ export const screenShareBandwidthStore = createScreenShareBandwidthStore();
  * A store containing the media constraints we want to apply.
  */
 export const screenSharingConstraintsStore = derived(
-    [requestedScreenSharingState, myCameraStore, myMicrophoneStore, inExternalServiceStore, peerStore],
-    ([$requestedScreenSharingState, $myCameraStore, $myMicrophoneStore, $inExternalServiceStore, $peerStore], set) => {
+    [
+        requestedScreenSharingState,
+        myCameraStore,
+        myMicrophoneStore,
+        inExternalServiceStore,
+        videoStreamElementsStore,
+        screenShareStreamElementsStore,
+        isSpeakerStore,
+    ],
+    (
+        [
+            $requestedScreenSharingState,
+            $myCameraStore,
+            $myMicrophoneStore,
+            $inExternalServiceStore,
+            $videoStreamElementsStore,
+            $screenShareStreamElementsStore,
+            $isSpeakerStore,
+        ],
+        set
+    ) => {
         let currentVideoConstraint: boolean | MediaTrackConstraints = true;
         let currentAudioConstraint: boolean | MediaTrackConstraints = false;
 
@@ -80,7 +98,11 @@ export const screenSharingConstraintsStore = derived(
         }
 
         // Disable screen sharing if no peers
-        if ($peerStore.size === 0) {
+        if (
+            $videoStreamElementsStore.length === 0 &&
+            $screenShareStreamElementsStore.length === 0 &&
+            !$isSpeakerStore
+        ) {
             currentVideoConstraint = false;
             currentAudioConstraint = false;
         }
@@ -211,13 +233,13 @@ export const screenSharingLocalStreamStore = derived<Readable<MediaStreamConstra
 /**
  * A store containing whether the screen sharing button should be displayed or hidden.
  */
-export const screenSharingAvailableStore = derived(peerStore, ($peerStore, set) => {
+export const screenSharingAvailableStore = derived(videoStreamElementsStore, ($videoStreamElementsStore, set) => {
     if (!navigator.getDisplayMedia && (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia)) {
         set(false);
         return;
     }
 
-    set($peerStore.size !== 0);
+    set($videoStreamElementsStore.length !== 0);
 });
 
 export interface ScreenSharingLocalMedia {
@@ -231,20 +253,20 @@ export interface ScreenSharingLocalMedia {
  */
 export const screenSharingLocalMedia = readable<Streamable | undefined>(undefined, function start(set) {
     const localMediaStreamStore = writable<MediaStream | undefined>(undefined);
+    const mutedLocalMediaStreamStore = muteMediaStreamStore(localMediaStreamStore);
+
     const localMedia = {
         uniqueId: "localScreenSharingStream",
         media: {
-            type: "mediaStore",
-            streamStore: localMediaStreamStore,
-        },
-        getExtendedSpaceUser(): Promise<SpaceUserExtended> | undefined {
-            return undefined;
-        },
+            type: "webrtc" as const,
+            streamStore: mutedLocalMediaStreamStore,
+            isBlocked: writable(false),
+        } satisfies WebRtcStreamable,
+        spaceUserId: undefined,
         hasAudio: writable(false),
         hasVideo: writable(true),
         isMuted: writable(true),
         name: writable(""),
-        pictureStore: currentPlayerWokaStore,
         showVoiceIndicator: writable(false),
         statusStore: writable("connected"),
         volumeStore: writable(undefined),
@@ -252,16 +274,26 @@ export const screenSharingLocalMedia = readable<Streamable | undefined>(undefine
         muteAudio: true,
         displayMode: "fit" as const,
         displayInPictureInPictureMode: true,
+        usePresentationMode: true,
+        once: (event: string, callback: (...args: unknown[]) => void) => {
+            callback();
+        },
+        closeStreamable: () => {},
     } satisfies Streamable;
 
     const unsubscribe = screenSharingLocalStreamStore.subscribe((screenSharingLocalStream) => {
         localMedia.name = writable(get(LL).camera.my.nameTag());
         if (screenSharingLocalStream.type === "success") {
             localMediaStreamStore.set(screenSharingLocalStream.stream);
+            if (screenSharingLocalStream.stream === undefined) {
+                set(undefined);
+            } else {
+                set(localMedia);
+            }
         } else {
             localMediaStreamStore.set(undefined);
+            set(undefined);
         }
-        set(localMedia);
     });
 
     return function stop() {

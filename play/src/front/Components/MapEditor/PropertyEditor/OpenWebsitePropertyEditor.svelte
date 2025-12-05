@@ -4,16 +4,17 @@
     import {
         CardsException,
         CardsService,
-        EraserException,
-        EraserService,
         ExcalidrawException,
-        ExcalidrawService,
         GoogleWorkSpaceException,
         GoogleWorkSpaceService,
         KlaxoonEvent,
         KlaxoonException,
         KlaxoonService,
+        MediaLinkManager,
+        TldrawException,
         YoutubeService,
+        EraserException,
+        YoutubeException,
     } from "@workadventure/shared-utils";
     import InputSwitch from "../../Input/InputSwitch.svelte";
     import { LL } from "../../../../i18n/i18n-svelte";
@@ -27,6 +28,7 @@
     import eraserSvg from "../../images/applications/icon_eraser.svg";
     import excalidrawSvg from "../../images/applications/icon_excalidraw.svg";
     import cardPng from "../../images/applications/icon_cards.svg";
+    import tldrawJpeg from "../../images/applications/icon_tldraw.jpeg";
     import pickerSvg from "../../images/applications/picker.svg";
     import { connectionManager } from "../../../Connection/ConnectionManager";
     import { GOOGLE_DRIVE_PICKER_APP_ID, GOOGLE_DRIVE_PICKER_CLIENT_ID } from "../../../Enum/EnvironmentVariable";
@@ -196,187 +198,59 @@
     }
 
     async function checkWebsiteProperty(protocolChecked = false): Promise<void> {
-        if (property.link == undefined || property.link == "") return;
-        // if the link is not a website, we don't need to check if it is embeddable
-        embeddableLoading = true;
-        error = "";
-        warning = "";
-        console.info("checkWebsiteProperty", property.application, property.link);
         try {
-            if (property.application == "youtube") {
-                try {
-                    const link = await YoutubeService.getYoutubeEmbedUrl(new URL(property.link));
-                    embeddable = true;
-                    optionAdvancedActivated = false;
+            if (property.link == undefined || property.link == "") return;
+            // if the link is not a website, we don't need to check if it is embeddable
+            embeddableLoading = true;
+            error = "";
+            warning = "";
+            try {
+                const mediaLink = new MediaLinkManager(property.link);
+
+                // Vérify that the link matches with properties
+                if (property.application != "website") mediaLink.linkMatchWithApplicationIdOrName(property.application);
+
+                const embedLink = await mediaLink.getEmbedLink({
+                    klaxoonId: connectionManager.klaxoonToolClientId,
+                    excalidrawDomains: connectionManager.excalidrawToolDomains,
+                });
+                if (embedLink != property.link) property.link = embedLink;
+
+                if (property.application == "youtube")
                     property.buttonLabel =
                         YoutubeService.getTitleFromYoutubeUrl(new URL(property.link)) ??
                         $LL.mapEditor.properties.youtubeProperties.label();
-                    property.link = link;
-                    property.newTab = oldNewTabValue;
-                } catch (e: unknown) {
-                    embeddable = false;
-                    error = $LL.mapEditor.properties.linkProperties.errorEmbeddableLink();
-                    console.info("Error to check embeddable website", e);
-                    property.link = null;
-                    throw e;
-                } finally {
-                    embeddableLoading = false;
-                    onValueChange();
-                }
-            }
 
-            if (property.application == "googleDocs") {
-                try {
-                    const link = GoogleWorkSpaceService.getGoogleDocsEmbedUrl(new URL(property.link));
-                    embeddable = true;
-                    optionAdvancedActivated = false;
-                    property.link = link;
-                    property.newTab = oldNewTabValue;
-                } catch (e) {
-                    embeddable = false;
-                    error =
-                        e instanceof GoogleWorkSpaceException.GoogleDocsException
-                            ? $LL.mapEditor.properties.googleDocsProperties.error()
-                            : $LL.mapEditor.properties.linkProperties.errorEmbeddableLink();
-                    console.info("Error to check embeddable website", e);
-                    property.link = null;
-                    throw e;
-                } finally {
-                    embeddableLoading = false;
-                    onValueChange();
-                }
-            }
+                embeddable = true;
+                optionAdvancedActivated = false;
+                property.newTab = oldNewTabValue;
+            } catch (e) {
+                if (e instanceof YoutubeException.YoutubeException)
+                    error = $LL.mapEditor.properties.youtubeProperties.error();
+                else if (e instanceof ExcalidrawException.ExcalidrawException)
+                    error = $LL.mapEditor.properties.excalidrawProperties.error();
+                else if (e instanceof EraserException.EraserLinkException)
+                    error = $LL.mapEditor.properties.eraserProperties.error();
+                else if (e instanceof KlaxoonException.KlaxoonException)
+                    error = $LL.mapEditor.properties.klaxoonProperties.error();
+                else if (e instanceof GoogleWorkSpaceException.GoogleSlidesException)
+                    error = $LL.mapEditor.properties.googleSlidesProperties.error();
+                else if (e instanceof GoogleWorkSpaceException.GoogleSheetsException)
+                    error = $LL.mapEditor.properties.googleSheetsProperties.error();
+                else if (e instanceof GoogleWorkSpaceException.GoogleDocsException)
+                    error = $LL.mapEditor.properties.googleDocsProperties.error();
+                else if (e instanceof CardsException.CardsLinkException)
+                    error = $LL.mapEditor.properties.cardsProperties.error();
+                else if (e instanceof TldrawException.TldrawLinkException)
+                    error = $LL.mapEditor.properties.tldrawProperties.error();
+                else error = $LL.mapEditor.properties.linkProperties.errorEmbeddableLink();
 
-            if (property.application == "googleSheets") {
-                try {
-                    const link = GoogleWorkSpaceService.getGoogleSheetsEmbedUrl(new URL(property.link));
-                    embeddable = true;
-                    optionAdvancedActivated = false;
-                    property.link = link;
-                    property.newTab = oldNewTabValue;
-                } catch (e) {
-                    embeddable = false;
-                    error =
-                        e instanceof GoogleWorkSpaceException.GoogleSheetsException
-                            ? $LL.mapEditor.properties.googleSheetsProperties.error()
-                            : $LL.mapEditor.properties.linkProperties.errorEmbeddableLink();
-                    console.info("Error to check embeddable website", e);
-                    property.link = null;
-                    throw e;
-                } finally {
-                    embeddableLoading = false;
-                    onValueChange();
-                }
-            }
-
-            if (property.application == "googleSlides") {
-                try {
-                    const link = GoogleWorkSpaceService.getGoogleSlidesEmbedUrl(new URL(property.link));
-                    embeddable = true;
-                    optionAdvancedActivated = false;
-                    property.link = link;
-                    property.newTab = oldNewTabValue;
-                } catch (e) {
-                    embeddable = false;
-                    error =
-                        e instanceof GoogleWorkSpaceException.GoogleSlidesException
-                            ? $LL.mapEditor.properties.googleSlidesProperties.error()
-                            : $LL.mapEditor.properties.linkProperties.errorEmbeddableLink();
-                    console.info("Error to check embeddable website", e);
-                    property.link = null;
-                    throw e;
-                } finally {
-                    embeddableLoading = false;
-                    onValueChange();
-                }
-            }
-
-            if (property.application == "klaxoon") {
-                try {
-                    const link = KlaxoonService.getKlaxoonEmbedUrl(
-                        new URL(property.link),
-                        connectionManager.klaxoonToolClientId
-                    );
-                    embeddable = true;
-                    optionAdvancedActivated = false;
-                    property.link = link;
-                    property.newTab = oldNewTabValue;
-                } catch (e) {
-                    embeddable = false;
-                    error =
-                        e instanceof KlaxoonException.KlaxoonException
-                            ? $LL.mapEditor.properties.klaxoonProperties.error()
-                            : $LL.mapEditor.properties.linkProperties.errorEmbeddableLink();
-                    console.info("Error to check embeddable website", e);
-                    property.link = null;
-                    throw e;
-                } finally {
-                    embeddableLoading = false;
-                    onValueChange();
-                }
-            }
-
-            if (property.application == "eraser") {
-                try {
-                    EraserService.validateLink(new URL(property.link));
-                    embeddable = true;
-                    optionAdvancedActivated = false;
-                    property.newTab = oldNewTabValue;
-                } catch (e) {
-                    embeddable = false;
-                    error =
-                        e instanceof EraserException.EraserLinkException
-                            ? $LL.mapEditor.properties.eraserProperties.error()
-                            : $LL.mapEditor.properties.linkProperties.errorEmbeddableLink();
-                    console.info("Error to check embeddable website", e);
-                    property.link = null;
-                    throw e;
-                } finally {
-                    embeddableLoading = false;
-                    onValueChange();
-                }
-            }
-
-            if (property.application == "excalidraw") {
-                try {
-                    ExcalidrawService.validateLink(new URL(property.link), connectionManager.excalidrawToolDomains);
-                    embeddable = true;
-                    optionAdvancedActivated = false;
-                    property.newTab = oldNewTabValue;
-                } catch (e) {
-                    embeddable = false;
-                    error =
-                        e instanceof ExcalidrawException.ExcalidrawException
-                            ? $LL.mapEditor.properties.excalidrawProperties.error()
-                            : $LL.mapEditor.properties.linkProperties.errorEmbeddableLink();
-                    console.info("Error to check embeddable website", e);
-                    property.link = null;
-                    throw e;
-                } finally {
-                    embeddableLoading = false;
-                    onValueChange();
-                }
-            }
-
-            if (property.application == "cards") {
-                try {
-                    CardsService.validateLink(new URL(property.link));
-                    embeddable = true;
-                    optionAdvancedActivated = false;
-                    property.newTab = oldNewTabValue;
-                } catch (e) {
-                    embeddable = false;
-                    error =
-                        e instanceof CardsException.CardsLinkException
-                            ? $LL.mapEditor.properties.cardsProperties.error()
-                            : $LL.mapEditor.properties.linkProperties.errorEmbeddableLink();
-                    console.info("Error to check embeddable website", e);
-                    property.link = null;
-                    throw e;
-                } finally {
-                    embeddableLoading = false;
-                    onValueChange();
-                }
+                embeddable = false;
+                property.link = null;
+                throw e;
+            } finally {
+                embeddableLoading = false;
+                onValueChange();
             }
 
             if (property.regexUrl) {
@@ -621,6 +495,9 @@
         if (property.application === "excalidraw") {
             window.open("https://excalidraw.com/", "_blank");
         }
+        if (property.application === "tldraw") {
+            window.open("https://tldraw.com/", "_blank");
+        }
 
         analyticsClient.openApplicationWithoutPicker(property.application);
     }
@@ -646,16 +523,27 @@
 >
     <span slot="header" class="flex justify-center items-center">
         {#if property.application === "youtube"}
-            <img class="w-6 me-1" src={youtubeSvg} alt={$LL.mapEditor.properties.youtubeProperties.description()} />
+            <img
+                class="w-6 me-1"
+                src={youtubeSvg}
+                alt={$LL.mapEditor.properties.youtubeProperties.description()}
+                draggable="false"
+            />
             {$LL.mapEditor.properties.youtubeProperties.label()}
         {:else if property.application === "klaxoon"}
-            <img class="w-6 me-1" src={klaxoonSvg} alt={$LL.mapEditor.properties.klaxoonProperties.description()} />
+            <img
+                class="w-6 me-1"
+                src={klaxoonSvg}
+                alt={$LL.mapEditor.properties.klaxoonProperties.description()}
+                draggable="false"
+            />
             {$LL.mapEditor.properties.klaxoonProperties.label()}
         {:else if property.application === "googleDocs"}
             <img
                 class="w-6 me-1"
                 src={googleDocsSvg}
                 alt={$LL.mapEditor.properties.googleDocsProperties.description()}
+                draggable="false"
             />
             {$LL.mapEditor.properties.googleDocsProperties.label()}
         {:else if property.application === "googleSheets"}
@@ -663,6 +551,7 @@
                 class="w-6 me-1"
                 src={googleSheetsSvg}
                 alt={$LL.mapEditor.properties.googleSheetsProperties.description()}
+                draggable="false"
             />
             {$LL.mapEditor.properties.googleSheetsProperties.label()}
         {:else if property.application === "googleSlides"}
@@ -670,6 +559,7 @@
                 class="w-6 me-1"
                 src={googleSlidesSvg}
                 alt={$LL.mapEditor.properties.googleSlidesProperties.description()}
+                draggable="false"
             />
             {$LL.mapEditor.properties.googleSlidesProperties.label()}
         {:else if property.application === "googleDrive"}
@@ -677,10 +567,16 @@
                 class="w-6 me-1"
                 src={googleDriveSvg}
                 alt={$LL.mapEditor.properties.googleDriveProperties.description()}
+                draggable="false"
             />
             {$LL.mapEditor.properties.googleDriveProperties.label()}
         {:else if property.application === "eraser"}
-            <img class="w-6 me-1" src={eraserSvg} alt={$LL.mapEditor.properties.eraserProperties.description()} />
+            <img
+                class="w-6 me-1"
+                src={eraserSvg}
+                alt={$LL.mapEditor.properties.eraserProperties.description()}
+                draggable="false"
+            />
             {$LL.mapEditor.properties.eraserProperties.label()}
         {:else if property.application === "excalidraw"}
             <img
@@ -690,20 +586,33 @@
             />
             {$LL.mapEditor.properties.excalidrawProperties.label()}
         {:else if property.application === "cards"}
-            <img class="w-6 me-1" src={cardPng} alt={$LL.mapEditor.properties.cardsProperties.description()} />
+            <img
+                class="w-6 me-1"
+                src={cardPng}
+                alt={$LL.mapEditor.properties.cardsProperties.description()}
+                draggable="false"
+            />
             {$LL.mapEditor.properties.cardsProperties.label()}
+        {:else if property.application === "tldraw"}
+            <img class="w-6 me-1" src={tldrawJpeg} alt={$LL.mapEditor.properties.tldrawProperties.description()} />
+            {$LL.mapEditor.properties.tldrawProperties.label()}
         {:else if property.application === "website"}
-            <img class="w-6 me-1" src={icon} alt={$LL.mapEditor.properties.linkProperties.description()} />
+            <img
+                class="w-6 me-1"
+                src={icon}
+                alt={$LL.mapEditor.properties.linkProperties.description()}
+                draggable="false"
+            />
             {$LL.mapEditor.properties.linkProperties.label()}
         {:else}
-            <img class="w-6 me-1" src={property.icon} alt={property.label} />
+            <img class="w-6 me-1" src={property.icon} alt={property.label} draggable="false" />
             {property.label}
         {/if}
     </span>
     <span slot="content">
         {#if property.poster}
             <div class="text-center">
-                <img class="w-20 me-1" src={property.poster} alt="" />
+                <img class="w-20 me-1" src={property.poster} alt="" draggable="false" />
             </div>
         {/if}
 
@@ -728,7 +637,7 @@
             </Select>
         {/if}
 
-        <div class="value-input flex flex-col">
+        <div class="flex flex-col">
             <label for="tabLink" class="px-3 pb-[0.375rem] grow font-light"
                 >{$LL.mapEditor.properties.linkProperties.linkLabel()}</label
             >
@@ -750,6 +659,7 @@
                             class="w-6 ms-4 items-center cursor-pointer"
                             src={pickerSvg}
                             alt={$LL.mapEditor.properties.linkProperties.openPickerSelector()}
+                            draggable="false"
                             on:keydown
                             on:keyup
                             on:keypress
@@ -760,12 +670,13 @@
                             leftPosition="true"
                         />
                     </div>
-                {:else if property.application === "cards" || property.application === "eraser" || property.application === "excalidraw"}
+                {:else if property.application === "cards" || property.application === "eraser" || property.application === "excalidraw" || property.application === "tldraw"}
                     <div class="flex flex-row items-center justify-center">
                         <img
                             class="w-6 ms-4 items-center cursor-pointer"
                             src={pickerSvg}
                             alt={`${$LL.mapEditor.properties.linkProperties.openApplication()} ${property.application}`}
+                            draggable="false"
                             on:keydown
                             on:keyup
                             on:keypress
@@ -815,7 +726,7 @@
             bind:value={optionAdvancedActivated}
         />
 
-        <div class:active={optionAdvancedActivated} class="advanced-option px-2">
+        <div class:active={optionAdvancedActivated} class="advanced-option">
             {#if (isArea && triggerOptionActivated && triggerOnActionChoosen) || !isArea}
                 <Input
                     id="triggerMessage"
@@ -841,13 +752,24 @@
             />
 
             {#if property.forceNewTab == true}
-                <div class="mb-3 ">
+                <div class="mb-3">
                     <span class="err text-warning-900 text-xs italic">
                         <IconAlertTriangle font-size="12" />
                         {$LL.mapEditor.properties.linkProperties.forcedInNewTab()}
                     </span>
                 </div>
             {/if}
+
+            <InputSwitch
+                id="hideUrl"
+                label={$LL.mapEditor.properties.linkProperties.hideUrlLabel()}
+                bind:value={property.hideUrl}
+                onChange={() => {
+                    onValueChange();
+                }}
+                disabled={property.newTab}
+            />
+
             {#if !embeddable && !property.newTab}
                 <div class="mb-3">
                     <span class="err text-warning-900 text-xs italic"
@@ -862,10 +784,6 @@
             {/if}
             {#if !property.newTab}
                 <div class="mt-3 mb-3">
-                    <!-- <label for="websiteWidth"
-                        >{$LL.mapEditor.properties.linkProperties.width()}: {property.width ?? 50}%</label
-                    > -->
-
                     <RangeSlider
                         id="websiteWidth"
                         min={15}

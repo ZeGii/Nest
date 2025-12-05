@@ -4,6 +4,7 @@ import cookieParser from "cookie-parser";
 import * as Sentry from "@sentry/node";
 import cors from "cors";
 import uWebsockets from "uWebSockets.js";
+import { adminApi } from "./services/AdminApi";
 import { IoSocketController } from "./controllers/IoSocketController";
 import { AuthenticateController } from "./controllers/AuthenticateController";
 import { MapController } from "./controllers/MapController";
@@ -23,7 +24,6 @@ import { PingController } from "./controllers/PingController";
 import { CompanionListController } from "./controllers/CompanionListController";
 import { FrontController } from "./controllers/FrontController";
 import { globalErrorHandler } from "./services/GlobalErrorHandler";
-import { adminApi } from "./services/AdminApi";
 import { jwtTokenManager } from "./services/JWTTokenManager";
 import { CompanionService } from "./services/CompanionService";
 import { WokaService } from "./services/WokaService";
@@ -59,6 +59,8 @@ class App {
                     "Accept",
                     "Pragma",
                     "Cache-Control",
+                    "baggage",
+                    "sentry-trace",
                 ],
                 credentials: true,
             })
@@ -159,13 +161,22 @@ class App {
                 maxAge: "1h",
             })
         );
-
-        this.app.use(globalErrorHandler);
     }
 
     public async init() {
         const companionListController = new CompanionListController(this.app, jwtTokenManager);
         const wokaListController = new WokaListController(this.app, jwtTokenManager);
+
+        // Handle 404 errors with no-cache headers
+        this.app.use((req, res, _next) => {
+            // Set no-cache headers for 404 responses
+            res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0");
+            res.setHeader("Pragma", "no-cache");
+            res.setHeader("Expires", "0");
+            res.status(404).send("Not Found");
+        });
+
+        this.app.use(globalErrorHandler);
 
         try {
             const capabilities = await adminApi.initialise();

@@ -99,17 +99,27 @@ const mapEditor: DeepPartial<Translation["mapEditor"]> = {
         },
         advancedOptions: "Erweiterte Optionen",
         speakerMegaphoneProperties: {
-            label: "Sprecherzone",
-            description: "",
+            label: "Podium",
+            description:
+                'Benutzer auf dem Podium (Bühne) können zu allen Teilnehmern im zugehörigen "Publikum"-Bereich sprechen.',
             nameLabel: "Name",
-            namePlaceholder: "MySpeakerZone",
+            namePlaceholder: "Hauptbühne",
+            disabled: "Podium ist für diesen Raum deaktiviert ❌",
         },
         listenerMegaphoneProperties: {
-            label: "Besucherzone",
-            description: "",
-            nameLabel: "Sprecherzonen-Name",
+            label: "Publikum",
+            description: "Benutzer im Publikumsbereich können den Sprecher auf dem verknüpften Podium hören.",
+            nameLabel: "Podiumsname",
             namePlaceholder: "MySpeakerZone",
+            disabled: "Publikum ist für diesen Raum deaktiviert ❌",
+            waitingMediaLinkLabel: "Medien, die vor Beginn des Livestreams angezeigt werden",
+            waitingMediaLinkPlaceholder: "https://www… (Medien-URL eingeben)",
+            waitingMedialLinkError:
+                "Es scheint ein Problem mit dem von dir angegebenen Link zu geben. Könntest du ihn bitte noch einmal überprüfen? 🙏",
+            waitingMedialLinkHelp: "Der korrekte Link sollte 'https://monlienmedia.com/…' sein.",
+            waitingSpeaker: "Warten auf den Sprecher 🎤✨",
         },
+
         chatEnabled: "Chat aktiviert",
         startProperties: {
             label: "Startbereich",
@@ -204,6 +214,44 @@ const mapEditor: DeepPartial<Translation["mapEditor"]> = {
             error: "Bitte geben Sie eine gültige Excalidraw-URL ein",
             disabled: "Excalidraw-Integration ist deaktiviert.",
         },
+        cardsProperties: {
+            label: "Karten öffnen",
+            description:
+                "Die schnellste und einfachste Lösung, um dein Wissen sofort zu teilen – online, in MS Teams und auf dem Handy.",
+            error: "Bitte gib eine gültige Karten-URL ein.",
+            disabled: "Die Karten-Integration ist deaktiviert.",
+        },
+        matrixProperties: {
+            label: "Matrix-Raum verlinken",
+            description: "Verknüpfe einen Matrix-Raum mit deinem Bereich.",
+            openAutomaticallyChatLabel: "Chat automatisch öffnen",
+            roomNameLabel: "Anzeigename des Raums",
+            roomNameLabelPlaceholder: "Mein Raum",
+            defaultChatRoomAreaName: "Raumbereich",
+        },
+        tooltipProperties: {
+            label: "Infobubble",
+            description: "Füge deinem Bereich eine Infobubble hinzu ℹ️",
+            contentPlaceholder: "Hier Inhalt schreiben ✍️",
+            duration: "Dauer (in Sekunden) ⏱️",
+            infinityDuration: "Unbegrenzte Dauer ⏱️",
+        },
+        openFileProperties: {
+            label: "Datei öffnen",
+            description: "Datei in WorkAdventure öffnen.",
+            error: "Bitte gib eine gültige Datei ein.",
+            disabled: "Datei-Integration ist deaktiviert.",
+            fileUrlLabel: "Datei-URL",
+            uploadFile: {
+                title: "Datei hinzufügen",
+                description: "Datei hierhin ziehen oder auswählen",
+                dragDrop: "Ziehen und ablegen oder",
+                chooseFile: "Datei auswählen",
+                errorOnFileFormat: "Dateiformat wird nicht unterstützt.",
+                errorOnFileNumber: "Mehrere Dateien werden nicht unterstützt.",
+            },
+        },
+        noProperties: "Keine Eigenschaften definiert",
     },
     areaEditor: {
         editInstructions: "Klicken Sie auf eine Fläche, um ihre Eigenschaften zu ändern.",
@@ -222,6 +270,7 @@ const mapEditor: DeepPartial<Translation["mapEditor"]> = {
                 cancel: "Abbrechen",
             },
         },
+        nameHelpText: "Dieser Text wird dem Benutzer angezeigt, wenn er den Bereich betritt.",
     },
     areaEditorInstructions: {
         title: "Wie funktioniert das?",
@@ -352,6 +401,9 @@ const mapEditor: DeepPartial<Translation["mapEditor"]> = {
             moveToArea: "Zum Bereich {name} bewegen",
             errorMovingToObject: "Das Objekt ist noch nicht zugänglich 🚫",
         },
+        zoomIn: "Vergrößern +",
+        zoomOut: "Verkleinern -",
+        showMyLocation: "Meinen Standort anzeigen",
     },
     listRoom: {
         isFetching: "Raumliste wird geladen... ⤵️",

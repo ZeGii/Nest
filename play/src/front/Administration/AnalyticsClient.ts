@@ -357,6 +357,14 @@ class AnalyticsClient {
             .catch((e) => console.error(e));
     }
 
+    menuShortcuts(): void {
+        this.posthogPromise
+            ?.then((posthog) => {
+                posthog.capture("wa_menu_shortcuts");
+            })
+            .catch((e) => console.error(e));
+    }
+
     globalMessage(): void {
         this.posthogPromise
             ?.then((posthog) => {
@@ -479,7 +487,7 @@ class AnalyticsClient {
             .catch((e) => console.error(e));
     }
 
-    addNewParticipant(peerId: string, userId: number, uuid: string): void {
+    addNewParticipant(peerId: string, userId: string, uuid: string): void {
         this.posthogPromise
             ?.then((posthog) => {
                 posthog.capture("wa_spontaneous_discussion", { peerId, userId, uuid });
@@ -915,6 +923,34 @@ class AnalyticsClient {
         this.posthogPromise
             ?.then((posthog) => {
                 posthog.capture("wa_think_bubble_open");
+            })
+            .catch((e) => console.error(e));
+    }
+    clickTopOpenMapExplorer(): void {
+        this.posthogPromise
+            ?.then((posthog) => {
+                posthog.capture("wa_click_top_open_map_explorer");
+            })
+            .catch((e) => console.error(e));
+    }
+    clickCenterToUser(): void {
+        this.posthogPromise
+            ?.then((posthog) => {
+                posthog.capture("wa_click_center_to_user");
+            })
+            .catch((e) => console.error(e));
+    }
+    clickToZoomIn(): void {
+        this.posthogPromise
+            ?.then((posthog) => {
+                posthog.capture("wa_click_to_zoom_in");
+            })
+            .catch((e) => console.error(e));
+    }
+    clickToZoomOut(): void {
+        this.posthogPromise
+            ?.then((posthog) => {
+                posthog.capture("wa_click_to_zoom_out");
             })
             .catch((e) => console.error(e));
     }

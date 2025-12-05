@@ -4,4 +4,4 @@ export class GoogleSheetsException extends Error {}
 
 export class GoogleSlidesException extends Error {}
 
-export class YoutubeException extends Error {}
+export class GoogleDriveException extends Error {}

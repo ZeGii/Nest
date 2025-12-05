@@ -2,22 +2,24 @@
     import { createEventDispatcher, onDestroy, onMount } from "svelte";
     import {
         ApplicationService,
-        CardsService,
-        EraserService,
-        ExcalidrawService,
+        defautlNativeIntegrationAppName,
         GoogleWorkSpaceService,
         KlaxoonEvent,
         KlaxoonService,
-        YoutubeService,
+        MediaLinkManager,
     } from "@workadventure/shared-utils";
     import CloseButton from "../../../../Components/MapEditor/PropertyEditor/CloseButton.svelte";
-    import { connectionManager, defautlNativeIntegrationAppName } from "../../../../Connection/ConnectionManager";
+    import { connectionManager } from "../../../../Connection/ConnectionManager";
     import { GOOGLE_DRIVE_PICKER_APP_ID, GOOGLE_DRIVE_PICKER_CLIENT_ID } from "../../../../Enum/EnvironmentVariable";
     import LL from "../../../../../i18n/i18n-svelte";
     import { ApplicationProperty } from "../MessageInputBar.svelte";
 
     const dispatch = createEventDispatcher<{
         update: ApplicationProperty;
+        // Currently resolving oEmbed link
+        processing: void;
+        // Resolved oEmbed link
+        processed: void;
         close: void;
         input: string;
     }>();
@@ -89,39 +91,17 @@
     }
 
     async function unFocus() {
+        dispatch("processing");
         errorLink = undefined;
         let link = htmlElementInput.value.trim();
         try {
-            switch (property.name) {
-                case defautlNativeIntegrationAppName.YOUTUBE:
-                    link = await YoutubeService.getYoutubeEmbedUrl(new URL(link));
-                    break;
-                case defautlNativeIntegrationAppName.KLAXOON:
-                    link = KlaxoonService.getKlaxoonEmbedUrl(new URL(link), connectionManager.klaxoonToolClientId);
-                    break;
-                case defautlNativeIntegrationAppName.GOOGLE_DRIVE:
-                    link = GoogleWorkSpaceService.getGoogleWorkSpaceEmbedUrl(new URL(link));
-                    break;
-                case defautlNativeIntegrationAppName.GOOGLE_DOCS:
-                    link = GoogleWorkSpaceService.getGoogleDocsEmbedUrl(new URL(link));
-                    break;
-                case defautlNativeIntegrationAppName.GOOGLE_SHEETS:
-                    link = GoogleWorkSpaceService.getGoogleSheetsEmbedUrl(new URL(link));
-                    break;
-                case defautlNativeIntegrationAppName.GOOGLE_SLIDES:
-                    link = GoogleWorkSpaceService.getGoogleSlidesEmbedUrl(new URL(link));
-                    break;
-                case defautlNativeIntegrationAppName.ERASER:
-                    EraserService.validateLink(new URL(link));
-                    break;
-                case defautlNativeIntegrationAppName.EXCALIDRAW:
-                    ExcalidrawService.validateLink(new URL(link));
-                    break;
-                case defautlNativeIntegrationAppName.CARDS:
-                    CardsService.validateLink(new URL(link));
-                    break;
-            }
-
+            let mediaLink = new MediaLinkManager(htmlElementInput.value.trim());
+            console.log("property.name", property.name);
+            mediaLink.linkMatchWithApplicationIdOrName(property.name);
+            link = await mediaLink.getEmbedLink({
+                klaxoonId: connectionManager.klaxoonToolClientId,
+                excalidrawDomains: connectionManager.excalidrawToolDomains,
+            });
             if (property.regexUrl) {
                 link = ApplicationService.validateLink(
                     new URL(link),
@@ -135,6 +115,7 @@
             link = "";
             errorLink = getErrorFromPropertyName() ?? errorLink ?? (error as Error).message;
         } finally {
+            dispatch("processed");
             dispatch("update", { ...property, link });
         }
     }
@@ -159,6 +140,8 @@
                 return $LL.mapEditor.properties.excalidrawProperties.error();
             case defautlNativeIntegrationAppName.CARDS:
                 return $LL.mapEditor.properties.cardsProperties.error();
+            case defautlNativeIntegrationAppName.TLDRAW:
+                return $LL.mapEditor.properties.tldrawProperties.error();
             default:
                 return null;
         }

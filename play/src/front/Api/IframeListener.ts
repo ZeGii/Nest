@@ -6,7 +6,6 @@ import { get } from "svelte/store";
 import { asError } from "catch-unknown";
 import { HtmlUtils } from "../WebRtc/HtmlUtils";
 import {
-    additionalButtonsMenu,
     handleMenuRegistrationEvent,
     handleMenuUnregisterEvent,
     handleOpenMenuEvent,
@@ -62,6 +61,7 @@ import {
     isIframeMessagePortWrapper,
 } from "./Events/MessagePortEvents";
 import { CheckedWorkAdventureMessagePort } from "./Iframe/CheckedWorkAdventureMessagePort";
+import { AddButtonActionBarEvent, RemoveButtonActionBarEvent } from "./Events/Ui/ButtonActionBarEvent";
 
 type AnswererCallback<T extends keyof IframeQueryMap> = (
     query: IframeQueryMap[T]["query"],
@@ -232,6 +232,12 @@ class IframeListener {
     private readonly _stopListeningToStreamInBubbleStream: Subject<void> = new Subject();
     public readonly stopListeningToStreamInBubbleStream = this._stopListeningToStreamInBubbleStream.asObservable();
 
+    private readonly _addButtonActionBarStream: Subject<AddButtonActionBarEvent> = new Subject();
+    public readonly addButtonActionBarStream = this._addButtonActionBarStream.asObservable();
+
+    private readonly _removeButtonActionBarStream: Subject<RemoveButtonActionBarEvent> = new Subject();
+    public readonly removeButtonActionBarStream = this._removeButtonActionBarStream.asObservable();
+
     private readonly iframes = new Map<HTMLIFrameElement, string | undefined>();
     private readonly iframeCloseCallbacks = new Map<MessageEventSource, Set<() => void>>();
     private readonly scripts = new Map<string, HTMLIFrameElement>();
@@ -284,12 +290,16 @@ class IframeListener {
                 const lookingLikeEvent = isLookingLikeIframeEventWrapper.safeParse(payload);
 
                 if (foundSrc === undefined || iframe === undefined) {
-                    if (lookingLikeEvent.success) {
+                    if (
+                        lookingLikeEvent.success ||
+                        isIframeMessagePortWrapper(payload) ||
+                        isIframeQueryWrapper(payload)
+                    ) {
                         console.warn(
                             "It seems an iFrame is trying to communicate with WorkAdventure but was not explicitly granted the permission to do so. " +
                                 "If you are looking to use the WorkAdventure Scripting API inside an iFrame, you should allow the " +
-                                'iFrame to communicate with WorkAdventure by using the "openWebsiteAllowApi" property in your map (or passing "true" as a second' +
-                                "parameter to WA.nav.openCoWebSite())"
+                                'iFrame to communicate with WorkAdventure by checking the "Allow API" checkbox (if you are using the map editor) or using the "openWebsiteAllowApi" property in your map (if you are using Tiled), or passing "true" as a second' +
+                                "parameter to WA.nav.openCoWebSite() (if you are using the scripting API)."
                         );
                     }
                     return;
@@ -568,9 +578,9 @@ class IframeListener {
                         modalVisibilityStore.set(false);
                         modalIframeStore.set(null);
                     } else if (iframeEvent.type == "addButtonActionBar") {
-                        additionalButtonsMenu.addAdditionalButtonActionBar(iframeEvent.data);
+                        this._addButtonActionBarStream.next(iframeEvent.data);
                     } else if (iframeEvent.type == "removeButtonActionBar") {
-                        additionalButtonsMenu.removeAdditionalButtonActionBar(iframeEvent.data);
+                        this._removeButtonActionBarStream.next(iframeEvent.data);
                     } else if (iframeEvent.type == "openBanner") {
                         warningBannerStore.activateWarningContainer(iframeEvent.data.timeToClose);
                         bannerStore.set(iframeEvent.data);
@@ -627,7 +637,9 @@ class IframeListener {
         this.iframes.set(iframe, id);
         iframe.addEventListener("load", () => {
             if (iframe.contentWindow) {
-                this.iframeCloseCallbacks.set(iframe.contentWindow, new Set());
+                if (!this.iframeCloseCallbacks.has(iframe.contentWindow)) {
+                    this.iframeCloseCallbacks.set(iframe.contentWindow, new Set());
+                }
             } else {
                 console.error('Could not register "iframeCloseCallbacks". No contentWindow.');
             }
@@ -739,12 +751,18 @@ class IframeListener {
 
     unregisterScript(scriptUrl: string): void {
         const iFrameId = IframeListener.getIFrameId(scriptUrl);
-        const iframe = HtmlUtils.getElementByIdOrFail<HTMLIFrameElement>(iFrameId);
-        if (!iframe) {
-            throw new Error('Unknown iframe for script "' + scriptUrl + '"');
+        let iframe: HTMLIFrameElement | undefined;
+        try {
+            iframe = HtmlUtils.getElementByIdOrFail<HTMLIFrameElement>(iFrameId);
+        } catch (e) {
+            console.warn(`Could not find iframe with id ${iFrameId} to unregister script ${scriptUrl}`, e);
+            return;
         }
-        this.unregisterIframe(iframe);
-        iframe.remove();
+        // Just in case, we check that the iframe is registered before unregistering it.
+        if (iframe) {
+            this.unregisterIframe(iframe);
+            iframe.remove();
+        }
 
         this.scripts.delete(scriptUrl);
     }
@@ -1089,6 +1107,9 @@ class IframeListener {
      * @param callback
      */
     public registerAnswerer<T extends keyof IframeQueryMap>(key: T, callback: AnswererCallback<T>): void {
+        if (this.answerers[key]) {
+            throw new Error(`Answerer for key ${key} already registered`);
+        }
         this.answerers[key] = callback;
     }
 

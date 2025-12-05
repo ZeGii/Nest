@@ -36,6 +36,14 @@ const mapEditor: DeepPartial<Translation["mapEditor"]> = {
             zoomMarginLabel: "Marge de Zoom",
             defaultButtonLabel: "Focaliser sur",
         },
+        highlightProperties: {
+            label: "Mise en évidence",
+            description: "Assombri l'extérieur de la zone pour la mettre en valeur.",
+            opacityLabel: "Opacité",
+            gradientWidthLabel: "Largeur du dégradé",
+            colorLabel: "Couleur",
+            durationLabel: "Durée de la transition (en ms)",
+        },
         jitsiProperties: {
             label: "Salle Jitsi",
             description: "Démarrer une réunion Jitsi à l'entrée.",
@@ -58,6 +66,7 @@ const mapEditor: DeepPartial<Translation["mapEditor"]> = {
                 addConfig: "Ajouter une option",
                 startWithAudioMuted: "Démarrer avec le microphone désactivé",
                 startWithVideoMuted: "Démarrer avec la vidéo désactivée",
+                disableChat: "Désactiver le chat",
                 jitsiRoomAdminTag: "Tag modérateur du meeting",
                 cancel: "Annuler",
                 validate: "Valider",
@@ -99,21 +108,29 @@ const mapEditor: DeepPartial<Translation["mapEditor"]> = {
             openPickerSelector: "Ouvrir le sélecteur",
             forcedInNewTab: "Ouverture forcée dans un nouvel onglet",
             openApplication: "Ouvrir l'application",
+            hideUrlLabel: "Masquer l'URL",
         },
         advancedOptions: "Options avancées",
         speakerMegaphoneProperties: {
-            label: "Zone conférencier",
-            description: "",
-            nameLabel: "Nom de la zone de diffusion",
-            namePlaceholder: "MaZoneDeDiffusion",
-            disabled: "La zone de diffusion est désactivée sur ce salon ❌",
+            label: "Podium",
+            description:
+                'Les utilisateurs sur le podium (scène) peuvent parler à tous les participants dans la zone "Audience" correspondante.',
+            nameLabel: "Nom du podium",
+            namePlaceholder: "MonPodium",
+            disabled: "Les podiums sont désactivés sur ce salon ❌",
         },
         listenerMegaphoneProperties: {
-            label: "Zone participant",
-            description: "",
-            nameLabel: "Nom de la zone de diffusion",
+            label: "Audience",
+            description: "Les utilisateurs dans la zone d'audience peuvent entendre l'orateur sur le podium lié.",
+            nameLabel: "Nom du podium attaché",
+            disabled: 'Les zones "Audience" sont désactivées sur ce salon ❌',
             namePlaceholder: "MaZoneDeDiffusion",
-            disabled: "La zone participant est désactivée sur ce salon ❌",
+            waitingMediaLinkLabel: "Média à afficher avant le début du live",
+            waitingMediaLinkPlaceholder: "https://www… (entrez l’URL du média)",
+            waitingMedialLinkError:
+                "Il semble y avoir un problème avec le lien que vous avez fourni. Pourriez-vous le vérifier à nouveau ? 🙏",
+            waitingMedialLinkHelp: "Le lien correct devrait être 'https://monlienmedia.com/…'.",
+            waitingSpeaker: "En attente de l'orateur 🎤✨",
         },
         chatEnabled: "Chat activé",
         startProperties: {
@@ -121,6 +138,9 @@ const mapEditor: DeepPartial<Translation["mapEditor"]> = {
             description: "Où les joueurs apparaissent lorsqu'ils entrent dans la carte.",
             nameLabel: "Nom de la zone de départ",
             namePlaceholder: "MaZoneDeDépart",
+            type: "Type de position de départ",
+            defaultMenuItem: "Utiliser par défaut",
+            hashMenuItem: "Utiliser si l’URL contient #[nom de zone]",
         },
         exitProperties: {
             label: "Zone de sortie",
@@ -162,6 +182,7 @@ const mapEditor: DeepPartial<Translation["mapEditor"]> = {
         eraserProperties: {
             label: "Ouvrir Eraser",
             description: "Ouvrir Eraser dans l'application ou dans un nouvel onglet.",
+            defaultButtonLabel: "Effacer",
             error: "Veuillez entrer une URL Eraser valide",
             disabled: "L'intégration Eraser est désactivée.",
         },
@@ -171,9 +192,17 @@ const mapEditor: DeepPartial<Translation["mapEditor"]> = {
             error: "Veuillez entrer une URL Google Drive valide",
             disabled: "L'intégration Google Drive est désactivée.",
         },
+        tldrawProperties: {
+            label: "Ouvrir tldraw",
+            description: "Ouvrir tldraw dans l'application ou dans un nouvel onglet.",
+            error: "Veuillez entrer une URL tldraw valide",
+            disabled: "L'intégration tldraw est désactivée.",
+        },
         restrictedRightsProperties: {
             label: "Ajouter des droits",
             rightTitle: "Droit d'accès et d'édition via les tags utilisateur",
+            rightDescription:
+                "Les droits définissent qui peut interagir avec la zone. Si vous laissez vide, tout le monde peut l’utiliser. Si vous définissez des tags, seuls les utilisateurs possédant au moins un de ces tags peuvent l’utiliser.",
             rightWriteTitle: "Droits d'édition",
             rightWriteDescription:
                 "Les droits d'édition définissent qui peut modifier la zone. Les utilisateurs correspondant à l'un de ces tags peuvent créer, mettre à jour ou supprimer un objet dans la zone.",
@@ -230,6 +259,7 @@ const mapEditor: DeepPartial<Translation["mapEditor"]> = {
             description: "Ouvrir un fichier dans l'application.",
             error: "Veuillez entrer fichier valide",
             disabled: "L'intégration de fichier est désactivée.",
+            fileUrlLabel: "URL du fichier",
             uploadFile: {
                 title: "Ajouter votre fichier",
                 description: "Glissez-déposer ou choisissez votre fichier afin de l'ajouter sur la carte",
@@ -237,8 +267,28 @@ const mapEditor: DeepPartial<Translation["mapEditor"]> = {
                 chooseFile: "Choisir ",
                 errorOnFileFormat: "Format du fichier non supporté",
                 errorOnFileNumber: "Dépot multiple de fichier non supporté",
+                errorOnFileSize: "Fichier trop volumineux : la taille maximale est de {size} MB",
+            },
+            hideUrlLabel: "Masquer l'URL",
+        },
+        livekitProperties: {
+            label: "Salle de réunion",
+            description: "Démarrer une réunion à l'entrée.",
+            roomNameLabel: "Nom de la salle",
+            roomNamePlaceholder: "Nom de la salle",
+            highlightAreaOnEnter: "Mettre en évidence la zone",
+            moreOptionsLabel: "Plus d'options",
+            livekitRoomConfig: {
+                addConfig: "Ajouter une option",
+                startWithAudioMuted: "Démarrer avec le microphone désactivé",
+                startWithVideoMuted: "Démarrer avec la vidéo désactivée",
+                disableChat: "Désactiver le chat",
+                livekitRoomAdminTag: "Tag modérateur de la salle de réunion",
+                cancel: "Annuler",
+                validate: "Valider",
             },
         },
+        noProperties: "Aucune propriété définie",
     },
     areaEditor: {
         editInstructions: "Sélectionnez une zone pour modifier ses propriétés.",
@@ -257,6 +307,7 @@ const mapEditor: DeepPartial<Translation["mapEditor"]> = {
                 cancel: "Annuler",
             },
         },
+        nameHelpText: "Le nom de la zone sera affiché aux utilisateurs lorsqu'ils entreront dans la zone.",
     },
     areaEditorInstructions: {
         title: "Comment ca marche ?",
@@ -296,6 +347,7 @@ const mapEditor: DeepPartial<Translation["mapEditor"]> = {
             chooseFile: "Choisir ",
             errorOnFileFormat: "Format du fichier non supporté",
             errorOnFileNumber: "Dépot multiple de fichier non supporté",
+            errorOnFileSize: "Fichier trop volumineux : la taille maximale est de {size} MB",
         },
         images: "Image{{s}}",
         noImage: "Aucune image",
@@ -354,6 +406,34 @@ const mapEditor: DeepPartial<Translation["mapEditor"]> = {
                 },
             },
         },
+        room: {
+            title: "Paramètres du salon",
+            description: "Configurer votre salon",
+            inputs: {
+                name: "Nom du salon",
+                description: "Description du salon",
+                tags: "Tags",
+                copyright: "Licence du salon",
+                thumbnail: "Vignette du salon",
+            },
+            helps: {
+                description:
+                    "Une description de la carte. Peut être utilisée sur les réseaux sociaux lors du partage d’un lien vers la carte.",
+                tags: "Une liste de tags. Peut être utilisée pour accorder l’accès à la carte.",
+                thumbnail:
+                    "URL d’une image miniature. Cette image sera utilisée sur les réseaux sociaux lors du partage d’un lien vers la carte.",
+                copyright:
+                    "Mention de copyright pour cette carte. Peut être un lien vers une licence. Des parties de la carte comme les tilesets ou les images peuvent avoir leur propre copyright.",
+            },
+            actions: {
+                save: "Enregistrer",
+                confirm: "Confirmer",
+                success: "Paramètres du salon enregistrés",
+                error: "Erreur lors de l’enregistrement des paramètres du salon",
+            },
+            confirmSave:
+                "Confirmez que vous souhaitez enregistrer les modifications de la carte. Cela créera une nouvelle version de la carte, déconnectera tous les joueurs et rechargera la carte pour tout le monde.",
+        },
     },
     explorer: {
         title: "Explorateur de carte",
@@ -370,6 +450,9 @@ const mapEditor: DeepPartial<Translation["mapEditor"]> = {
             moveToArea: "Aller à la zone {name}",
             errorMovingToObject: "L'objet n'est pas accessible pour le moment 🚫",
         },
+        zoomIn: "Zoomer +",
+        zoomOut: "Dézoomer -",
+        showMyLocation: "Afficher ma position",
     },
     listRoom: {
         isFetching: "Récupération des salles en cours...⤵️",

@@ -85,7 +85,7 @@
     >
         {#if (!isMyMessage || isQuotedMessage) && sender !== undefined && replyDepth === 0}
             <div class="avatar pt-1.5">
-                <Avatar avatarUrl={sender?.avatarUrl} fallbackName={sender?.username} />
+                <Avatar pictureStore={sender?.pictureStore} fallbackName={sender?.username} />
             </div>
         {/if}
 
@@ -135,7 +135,7 @@
         </div>
         {#if replyDepth <= 0}
             <div
-                class="messageHeader w-full absolute bottom-0 h-fit group-hover/message:translate-y-[2px] opacity-0 group-hover/message:opacity-100 left-0 text-gray-500 text-xxs px-2 flex justify-between items-end gap-2"
+                class="messageHeader w-full absolute bottom-0 h-fit group-hover/message:translate-y-[2px] opacity-0 group-hover/message:opacity-100 left-0 text-gray-500 text-xxs px-2 flex justify-between items-end gap-2 overflow-x-hidden"
                 class:flex-row-reverse={isMyMessage}
                 hidden={isQuotedMessage || messageFromSystem}
             >

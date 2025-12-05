@@ -1,15 +1,17 @@
-import { Readable } from "svelte/store";
+import { Readable, Writable } from "svelte/store";
 import { AvailabilityStatus } from "@workadventure/messages";
 import { MapStore } from "@workadventure/store-utils";
+import { StateEvents } from "matrix-js-sdk";
 import { RoomConnection } from "../../Connection/RoomConnection";
+import { PictureStore } from "../../Stores/PictureStore";
 
-export type memberTypingInformation = { id: string; name: string | null; avatarUrl: string | null };
-export interface ChatUser {
+export type memberTypingInformation = { id: string; name: string | null; pictureStore: PictureStore };
+export type ChatUser = {
     chatId: string;
     uuid?: string;
     availabilityStatus: Readable<AvailabilityStatus>;
     username: string | undefined;
-    avatarUrl: string | undefined;
+    pictureStore: PictureStore | undefined;
     roomName: string | undefined;
     playUri: string | undefined;
     isAdmin?: boolean;
@@ -17,9 +19,28 @@ export interface ChatUser {
     visitCardUrl?: string;
     color: string | undefined;
     spaceUserId: string | undefined;
-}
+};
+
+export type AdminUser = {
+    chatId?: string;
+    uuid: string;
+    availabilityStatus: Readable<AvailabilityStatus>;
+    username: string | undefined;
+    pictureStore: PictureStore | undefined;
+    roomName: string | undefined;
+    playUri: string | undefined;
+    isAdmin?: boolean;
+    isMember?: boolean;
+    visitCardUrl?: string;
+    color: string | undefined;
+    spaceUserId: string | undefined;
+};
+
+export type AnyKindOfUser = ChatUser | AdminUser;
 
 export type PartialChatUser = Partial<ChatUser> & { chatId: string };
+export type PartialAdminUser = Partial<AdminUser> & { uuid: string };
+export type PartialAnyKindOfUser = PartialChatUser | PartialAdminUser;
 
 export type ChatRoomMembership = "ban" | "leave" | "knock" | "join" | "invite" | string;
 
@@ -42,7 +63,7 @@ export interface ChatRoom {
     readonly name: Readable<string>;
     readonly type: "direct" | "multiple";
     readonly hasUnreadMessages: Readable<boolean>;
-    readonly avatarUrl: string | undefined;
+    readonly pictureStore: PictureStore;
     readonly messages: Readable<readonly ChatMessage[]>;
     readonly sendMessage: (message: string) => void;
     readonly sendFiles: (files: FileList) => Promise<void>;
@@ -50,7 +71,7 @@ export interface ChatRoom {
     readonly hasPreviousMessage: Readable<boolean>;
     readonly loadMorePreviousMessages: () => Promise<void>;
     readonly isEncrypted: Readable<boolean>;
-    readonly typingMembers: Readable<Array<{ id: string; name: string | null; avatarUrl: string | null }>>;
+    readonly typingMembers: Readable<Array<{ id: string; name: string | null; pictureStore: PictureStore }>>;
     readonly startTyping: () => Promise<object>;
     readonly stopTyping: () => Promise<object>;
     readonly isRoomFolder: boolean;
@@ -75,6 +96,7 @@ export interface ChatRoomModeration {
     readonly id: string;
     readonly inviteUsers: (userIds: string[]) => Promise<void>;
     readonly hasPermissionTo: (action: ModerationAction, member?: ChatRoomMember) => Readable<boolean>;
+    readonly hasPermissionForRoomStateEvent: (eventType: keyof StateEvents) => Readable<boolean>;
     readonly kick: (userID: string) => Promise<void>;
     readonly ban: (userID: string) => Promise<void>;
     readonly unban: (userID: string) => Promise<void>;
@@ -86,7 +108,7 @@ export interface ChatRoomModeration {
 //Readonly attributes
 export interface ChatMessage {
     id: string;
-    sender: ChatUser | undefined;
+    sender: AnyKindOfUser | undefined;
     content: Readable<ChatMessageContent>;
     isMyMessage: boolean;
     isQuotedMessage: boolean | undefined;
@@ -117,7 +139,7 @@ export type ChatMessageContent = {
     body: string;
     url: string | undefined;
 };
-export const historyVisibilityOptions = ["world_readable", "joined", "invited"] as const;
+export const historyVisibilityOptions = ["joined", "invited", "world_readable"] as const;
 export type historyVisibility = (typeof historyVisibilityOptions)[number];
 
 export interface RoomFolder extends ChatRoom, ChatRoomMembershipManagement, ChatRoomModeration {
@@ -127,6 +149,8 @@ export interface RoomFolder extends ChatRoom, ChatRoomMembershipManagement, Chat
     folders: Readable<RoomFolder[]>;
     invitations: Readable<ChatRoom[]>;
     suggestedRooms: Readable<{ name: string; id: string; avatarUrl: string }[]>;
+    joinableRooms: Readable<{ name: string; id: string; avatarUrl: string }[]>;
+    hasChildRoomsError: Writable<boolean>;
 }
 
 export interface CreateRoomOptions {
@@ -145,7 +169,8 @@ export interface CreateRoomOptions {
 export type ConnectionStatus = "ONLINE" | "ON_ERROR" | "CONNECTING" | "OFFLINE";
 
 export type userId = number;
-export type chatId = string;
+export type ChatId = string & { __chatIdBrand: never };
+export type UserUuid = string & { __userUuidBrand: never };
 export type ChatSpaceRoom = ChatRoom;
 export interface ChatConnectionInterface {
     connectionStatus: Readable<ConnectionStatus>;

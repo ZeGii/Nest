@@ -1,5 +1,7 @@
 <script lang="ts">
+    import { onDestroy } from "svelte";
     import { LL } from "../../../i18n/i18n-svelte";
+    import { inputFormFocusStore } from "../../Stores/UserInputStore";
     import InfoButton from "./InfoButton.svelte";
 
     export let id: string | undefined = undefined;
@@ -9,7 +11,7 @@
     export let onChange = () => {};
     export let onBlur = () => {};
     export let disabled = false;
-    export let type: "text" | "url" | "number" = "text";
+    export let type: "text" | "url" | "number" | "color" = "text";
     export let value: string | number | null | undefined;
     export let onClick = () => {};
     export let variant: "light" | "" = "";
@@ -49,6 +51,15 @@
             onInput();
         }
     }
+
+    // On Firefox, blur is not called when the element is removed from the DOM while focused.
+    // Let's blur it manually in this case.
+    onDestroy(() => {
+        if (inputElement && document.activeElement === inputElement) {
+            inputElement.blur();
+            inputFormFocusStore.set(false);
+        }
+    });
 </script>
 
 <div class="flex flex-col w-full">
@@ -64,7 +75,7 @@
         {/if}
 
         {#if optional}
-            <div class="text-xs opacity-50 ">
+            <div class="text-xs opacity-50">
                 {$LL.form.optional()}
             </div>
         {/if}
@@ -108,7 +119,7 @@
             <input
                 id={uniqueId}
                 type="url"
-                class="grow input-text input-icon  "
+                class="grow input-text input-icon"
                 class:input-icon-left={appendSide === "left"}
                 class:input-text-light={variant === "light"}
                 class:input-text-xs={size === "xs"}
@@ -132,7 +143,7 @@
             <input
                 id={uniqueId}
                 type="number"
-                class="grow input-text input-icon  "
+                class="grow input-text input-icon"
                 class:input-icon-left={appendSide === "left"}
                 class:input-text-light={variant === "light"}
                 class:input-text-xs={size === "xs"}
@@ -152,7 +163,30 @@
                 {step}
                 {disabled}
             />
-        {/if}
+        {:else if type === "color"}
+            <input
+                id={uniqueId}
+                type="color"
+                class="grow input-text input-icon border-0 bg-transparent hover:bg-transparent active:bg-transparent mx-auto w-full p-0 border-none"
+                class:input-icon-left={appendSide === "left"}
+                class:input-text-light={variant === "light"}
+                class:input-text-xs={size === "xs"}
+                class:input-text-sm={size === "sm"}
+                class:input-text-lg={size === "lg"}
+                class:error={status === "error"}
+                class:success={status === "success"}
+                data-testid={dataTestId}
+                bind:value
+                {placeholder}
+                on:change={onChange}
+                on:click={onClick}
+                on:input={validateInput}
+                on:blur={onBlur}
+                {min}
+                {max}
+                {step}
+                {disabled}
+            />{/if}
         {#if SLOTS.inputAppend}
             <div
                 class="absolute inset-y-0 flex items-center pb-2"

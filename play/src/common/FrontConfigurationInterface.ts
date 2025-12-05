@@ -20,6 +20,7 @@ export interface FrontConfigurationInterface {
     PUBLIC_MAP_STORAGE_PREFIX: string | undefined;
     MAX_USERNAME_LENGTH: number;
     MAX_PER_GROUP: number;
+    MAX_DISPLAYED_VIDEOS: number;
     NODE_ENV: string;
     CONTACT_URL: string | undefined;
     POSTHOG_API_KEY: string | undefined;
@@ -38,9 +39,6 @@ export interface FrontConfigurationInterface {
     SENTRY_RELEASE: string | undefined;
     SENTRY_TRACES_SAMPLE_RATE: number | undefined;
     WOKA_SPEED: number;
-    JITSI_DOMAIN: string | undefined;
-    JITSI_XMPP_DOMAIN: string | undefined;
-    JITSI_MUC_DOMAIN: string | undefined;
     FEATURE_FLAG_BROADCAST_AREAS: boolean;
     KLAXOON_ENABLED: boolean;
     KLAXOON_CLIENT_ID: string | undefined;
@@ -59,6 +57,7 @@ export interface FrontConfigurationInterface {
     EXCALIDRAW_ENABLED: boolean;
     EXCALIDRAW_DOMAINS: string[];
     CARDS_ENABLED: boolean;
+    TLDRAW_ENABLED: boolean;
     EMBEDLY_KEY: string | undefined;
     MATRIX_PUBLIC_URI: string | undefined;
     MATRIX_ADMIN_USER: string | undefined;
@@ -67,5 +66,6 @@ export interface FrontConfigurationInterface {
     ENABLE_CHAT_ONLINE_LIST: boolean | undefined;
     ENABLE_CHAT_DISCONNECTED_LIST: boolean | undefined;
     ENABLE_SAY: boolean | undefined;
+    ENABLE_ISSUE_REPORT: boolean | undefined;
     GRPC_MAX_MESSAGE_SIZE: number;
 }

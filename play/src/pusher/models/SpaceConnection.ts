@@ -20,7 +20,7 @@ export interface SpaceConnectionInterface {
     removeSpace(space: SpaceInterface): void;
 }
 
-export class SpaceConnection {
+export class SpaceConnection implements SpaceConnectionInterface {
     private spaceStreamToBackPromises: Map<number, Promise<BackSpaceConnection>> = new Map<
         number,
         Promise<BackSpaceConnection>
@@ -88,6 +88,7 @@ export class SpaceConnection {
             try {
                 if (message.message) {
                     switch (message.message.$case) {
+                        case "initSpaceUsersMessage":
                         case "addSpaceUserMessage":
                         case "updateSpaceUserMessage":
                         case "removeSpaceUserMessage":
@@ -124,17 +125,11 @@ export class SpaceConnection {
                                 console.error("Error spaceStreamToBack timed out for back:", backId);
                                 Sentry.captureException("Error spaceStreamToBack timed out for back: " + backId);
                                 spaceStreamToBack.end();
-                                try {
-                                    this.removeListeners(spaceStreamToBack, backId);
-                                    this.retryConnection(backId);
-                                } catch (e) {
-                                    console.error("Error while retrying connection ...", e);
+                                this.removeListeners(spaceStreamToBack, backId);
+                                this.cleanUpSpacePerBackId(backId).catch((e) => {
+                                    console.error("Error while cleaning up space per back id", e);
                                     Sentry.captureException(e);
-                                    this.cleanUpSpacePerBackId(backId).catch((e) => {
-                                        console.error("Error while cleaning up space per back id", e);
-                                        Sentry.captureException(e);
-                                    });
-                                }
+                                });
                             }, 1000 * 60);
                             break;
                         }
@@ -152,10 +147,13 @@ export class SpaceConnection {
         };
     }
 
-    private onEndListener(spaceStreamToBack: BackSpaceConnection) {
+    private onEndListener(spaceStreamToBack: BackSpaceConnection, backId: number) {
         return () => {
             debug("[space] spaceStreamsToBack ended");
             if (spaceStreamToBack.pingTimeout) clearTimeout(spaceStreamToBack.pingTimeout);
+            this.removeListeners(spaceStreamToBack, backId);
+            this.spaceStreamToBackPromises.delete(backId);
+            this.spacePerBackId.delete(backId);
         };
     }
 
@@ -166,19 +164,14 @@ export class SpaceConnection {
     ) {
         return (err: Error) => {
             if (spaceStreamToBack.pingTimeout) clearTimeout(spaceStreamToBack.pingTimeout);
-            console.error("Error in connection to back server '" + apiSpaceClient.getChannel().getTarget(), err);
+            console.error(
+                "Error in connection to back server for watchSpace '" + apiSpaceClient.getChannel().getTarget(),
+                err
+            );
             Sentry.captureException(err);
-            try {
-                this.removeListeners(spaceStreamToBack, backId);
-                this.retryConnection(backId);
-            } catch (e) {
-                console.error("Error while retrying connection ...", e);
-                Sentry.captureException(e);
-                this.cleanUpSpacePerBackId(backId).catch((e) => {
-                    console.error("Error while cleaning up space per back id", e);
-                    Sentry.captureException(e);
-                });
-            }
+            this.removeListeners(spaceStreamToBack, backId);
+            this.spaceStreamToBackPromises.delete(backId);
+            this.spacePerBackId.delete(backId);
         };
     }
 
@@ -198,11 +191,11 @@ export class SpaceConnection {
         apiSpaceClient: SpaceManagerClient
     ) {
         const dataListener = this.onDataListener(spaceStreamToBack, backId);
-        const endListener = this.onEndListener(spaceStreamToBack);
+        const endListener = this.onEndListener(spaceStreamToBack, backId);
         const errorListener = this.onErrorListener(spaceStreamToBack, backId, apiSpaceClient);
 
         // eslint-disable-next-line listeners/no-missing-remove-event-listener , listeners/matching-remove-event-listener
-        spaceStreamToBack.on("data", dataListener).on("end", endListener).on("error", errorListener);
+        spaceStreamToBack.on("data", dataListener).on("end", endListener).prependListener("error", errorListener);
 
         this.listenersPerBackId.set(backId, {
             dataListener,
@@ -225,46 +218,18 @@ export class SpaceConnection {
                             spaceName: space.name,
                             filterType: space.filterType,
                             isRetry,
+                            propertiesToSync: space.getPropertiesToSync(),
+                            world: space.world,
                         },
                     },
                 });
             })
             .catch((e) => {
+                // FIXME: if joinspace fails, we have big problems.
                 console.error("Error while joining space", e);
 
                 Sentry.captureException(e);
             });
-    }
-
-    private retryConnection(backId: number) {
-        const spaceForBackId = this.spacePerBackId.get(backId);
-        if (!spaceForBackId) {
-            console.error("spaceForBackId not found", this.spacePerBackId.size);
-            throw new Error("spaceForBackId not found");
-        }
-
-        const validEntry = Array.from(spaceForBackId.entries()).find(([_, v]) => v !== undefined);
-        if (!validEntry) {
-            const spaceNames = Array.from(spaceForBackId.keys());
-            debug(
-                `[SpaceConnection] No valid space found for backId=${backId}. spaceForBackId contains: [${spaceNames.join(
-                    ", "
-                )}]`
-            );
-            this.spacePerBackId.delete(backId);
-            return;
-        }
-        const [, space] = validEntry;
-
-        const spaceStreamToBackPromise = this.createBackConnection(space, backId);
-        space.setSpaceStreamToBack(spaceStreamToBackPromise);
-        this.spaceStreamToBackPromises.set(backId, spaceStreamToBackPromise);
-
-        spaceForBackId.forEach((space) => {
-            space.setSpaceStreamToBack(spaceStreamToBackPromise);
-            this.joinSpace(spaceStreamToBackPromise, space, true);
-            space.sendLocalUsersToBack();
-        });
     }
 
     removeSpace(space: SpaceInterface) {
@@ -273,7 +238,9 @@ export class SpaceConnection {
         const spacesForBackId = this.spacePerBackId.get(backId);
 
         if (!spacesForBackId) {
-            throw new Error("Space not found");
+            // If a "end" or "error" event happened before the "removeSpace" event, the spacesForBackId is already empty.
+            // There is nothing more to do in this case.
+            return;
         }
 
         const isDeleted = spacesForBackId.delete(space.name);
@@ -308,7 +275,7 @@ export class SpaceConnection {
 
     private async cleanUpSpacePerBackId(backId: number) {
         this.spacePerBackId.get(backId)?.forEach((space) => {
-            space.handleConnectionRetryFailure();
+            space.cleanup();
         });
         this.spacePerBackId.delete(backId);
         const spaceStreamToBack = this.spaceStreamToBackPromises.get(backId);
@@ -326,6 +293,8 @@ export class SpaceConnection {
         if (!message.message) return undefined;
 
         switch (message.message.$case) {
+            case "initSpaceUsersMessage":
+                return message.message.initSpaceUsersMessage?.spaceName;
             case "addSpaceUserMessage":
                 return message.message.addSpaceUserMessage?.spaceName;
             case "updateSpaceUserMessage":
@@ -345,8 +314,10 @@ export class SpaceConnection {
             }
             case "pingMessage":
                 return undefined;
-            default:
+            default: {
+                const _exhaustiveCheck: never = message.message;
                 return undefined;
+            }
         }
     }
 }

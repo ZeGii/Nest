@@ -1,3 +1,5 @@
+import { basename } from "path";
+import fs from "fs";
 import { defineConfig, loadEnv } from "vite";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
 import sveltePreprocess from "svelte-preprocess";
@@ -6,6 +8,7 @@ import { sentryVitePlugin } from "@sentry/vite-plugin";
 import Icons from "unplugin-icons/vite";
 import tsconfigPaths from "vite-tsconfig-paths";
 import NodeGlobalsPolyfillPlugin from "@esbuild-plugins/node-globals-polyfill";
+import { nodePolyfills } from "vite-plugin-node-polyfills";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
@@ -25,14 +28,19 @@ export default defineConfig(({ mode }) => {
             },
         },
         build: {
-            sourcemap: true,
+            sourcemap: env.GENERATE_SOURCEMAP !== "false",
             outDir: "./dist/public",
             rollupOptions: {
-                plugins: [NodeGlobalsPolyfillPlugin({ buffer: true })],
+                plugins: [NodeGlobalsPolyfillPlugin({ buffer: true }), mediapipe_workaround()],
+                // external: ["@mediapipe/tasks-vision", "@mediapipe/selfie_segmentation"],
                 //plugins: [inject({ Buffer: ["buffer/", "Buffer"] })],
             },
+            assetsInclude: ["**/*.tflite", "**/*.wasm"],
         },
         plugins: [
+            nodePolyfills({
+                include: ["events"],
+            }),
             svelte({
                 preprocess: sveltePreprocess(),
                 onwarn(warning, defaultHandler) {
@@ -48,19 +56,31 @@ export default defineConfig(({ mode }) => {
                     }
                 },
             }),
-            Icons({ compiler: "svelte" }),
-            legacy({
-                //targets: ['defaults', 'not IE 11', 'iOS > 14.3']
-
-                // Structured clone is needed for Safari < 15.4
-                polyfills: ["web.structured-clone"],
-                modernPolyfills: ["web.structured-clone"],
+            Icons({
+                compiler: "svelte",
             }),
+            // Conditional plugin inclusion
+            ...(env.DISABLE_LEGACY_BROWSERS === "true"
+                ? []
+                : [
+                      legacy({
+                          //targets: ['defaults', 'not IE 11', 'iOS > 14.3']
+                          // Structured clone is needed for Safari < 15.4
+                          polyfills: ["web.structured-clone"],
+                          modernPolyfills: ["web.structured-clone"],
+                      }),
+                  ]),
             tsconfigPaths(),
         ],
+        resolve: {
+            alias: {
+                events: "events",
+            },
+        },
         test: {
             environment: "jsdom",
             globals: true,
+            setupFiles: ["./tests/setup/vitest.setup.ts"],
             coverage: {
                 all: true,
                 include: ["src/*.ts", "src/**/*.ts"],
@@ -104,3 +124,19 @@ export default defineConfig(({ mode }) => {
     }
     return config;
 });
+
+// use to fix the build issue with mediapipe ==> https://github.com/tensorflow/tfjs/issues/7165
+function mediapipe_workaround() {
+    return {
+        name: "mediapipe_workaround",
+        load(id: string) {
+            if (basename(id) === "selfie_segmentation.js") {
+                let code = fs.readFileSync(id, "utf-8");
+                code += "exports.SelfieSegmentation = SelfieSegmentation;";
+                return { code };
+            } else {
+                return null;
+            }
+        },
+    };
+}

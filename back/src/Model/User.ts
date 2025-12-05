@@ -33,6 +33,10 @@ export class User implements Movable, CustomJsonReplacerInterface {
     public disconnected = false;
     private isRoomJoinedMessage = false;
     private pendingMessages: NonNullable<ServerToClientMessage["message"]>[] = [];
+    /**
+     * A map of abort controllers we can use to abort queries done by this user.
+     */
+    public readonly queryMessageAbortControllers = new Map<number, AbortController>();
 
     public constructor(
         public id: number,
@@ -184,7 +188,9 @@ export class User implements Movable, CustomJsonReplacerInterface {
             this.availabilityStatus === AvailabilityStatus.BBB ||
             this.availabilityStatus === AvailabilityStatus.SPEAKER ||
             this.availabilityStatus === AvailabilityStatus.DO_NOT_DISTURB ||
-            this.availabilityStatus === AvailabilityStatus.BACK_IN_A_MOMENT
+            this.availabilityStatus === AvailabilityStatus.BACK_IN_A_MOMENT ||
+            this.availabilityStatus === AvailabilityStatus.LIVEKIT ||
+            this.availabilityStatus === AvailabilityStatus.LISTENER
         );
     }
 
@@ -240,10 +246,6 @@ export class User implements Movable, CustomJsonReplacerInterface {
 
         const setVariable = details.setVariable;
         if (setVariable) {
-            /*console.log(
-                "Variable '" + setVariable.getName() + "' for user '" + this.name + "' updated. New value: '",
-                setVariable.getValue() + "'"
-            );*/
             const scope = setVariable.scope;
             if (scope === SetPlayerVariableMessage_Scope.WORLD) {
                 this.variables
@@ -256,7 +258,7 @@ export class User implements Movable, CustomJsonReplacerInterface {
                     )
                     .catch((e) => {
                         console.error("An error occurred while saving world variable: ", e);
-                        Sentry.captureException(`An error occurred while saving world variable: ${JSON.stringify(e)}`);
+                        Sentry.captureException(e);
                     });
 
                 this.updateDataUserSameUUID(setVariable, details);
@@ -271,7 +273,7 @@ export class User implements Movable, CustomJsonReplacerInterface {
                     )
                     .catch((e) => {
                         console.error("An error occurred while saving room variable: ", e);
-                        Sentry.captureException(`An error occurred while saving room variable: ${JSON.stringify(e)}`);
+                        Sentry.captureException(e);
                     });
 
                 this.updateDataUserSameUUID(setVariable, details);
@@ -320,11 +322,7 @@ export class User implements Movable, CustomJsonReplacerInterface {
                     )
                     .catch((e) => {
                         console.error("An error occurred while saving room variable for a user with same UUID: ", e);
-                        Sentry.captureException(
-                            `An error occurred while saving room variable for a user with same UUID: ${JSON.stringify(
-                                e
-                            )}`
-                        );
+                        Sentry.captureException(e);
                     });
 
                 // Let's dispatch the message to the user.

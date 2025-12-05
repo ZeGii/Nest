@@ -1,24 +1,27 @@
 import { vi } from "vitest";
 
 import {
-    AddSpaceUserPusherToFrontMessage,
+    AddSpaceUserMessage,
     UpdateSpaceUserPusherToFrontMessage,
     RemoveSpaceUserPusherToFrontMessage,
     UpdateSpaceMetadataMessage,
     PublicEvent,
-    PrivateEvent,
+    PrivateEventPusherToFront,
     SpaceDestroyedMessage,
+    InitSpaceUsersMessage,
 } from "@workadventure/messages";
 import { Subject } from "rxjs";
 import { RoomConnectionForSpacesInterface } from "../SpaceRegistry/SpaceRegistry";
 
 export class MockRoomConnectionForSpaces implements RoomConnectionForSpacesInterface {
-    public addSpaceUserMessageStream = new Subject<AddSpaceUserPusherToFrontMessage>();
+    public closed = false;
+    public initSpaceUsersMessageStream = new Subject<InitSpaceUsersMessage>();
+    public addSpaceUserMessageStream = new Subject<AddSpaceUserMessage>();
     public updateSpaceUserMessageStream = new Subject<UpdateSpaceUserPusherToFrontMessage>();
     public removeSpaceUserMessageStream = new Subject<RemoveSpaceUserPusherToFrontMessage>();
     public updateSpaceMetadataMessageStream = new Subject<UpdateSpaceMetadataMessage>();
     public spacePublicMessageEvent = new Subject<PublicEvent>();
-    public spacePrivateMessageEvent = new Subject<PrivateEvent>();
+    public spacePrivateMessageEvent = new Subject<PrivateEventPusherToFront>();
     public spaceDestroyedMessage = new Subject<SpaceDestroyedMessage>();
     public emitPrivateSpaceEvent = vi.fn();
     public emitPublicSpaceEvent = vi.fn();
@@ -29,4 +32,5 @@ export class MockRoomConnectionForSpaces implements RoomConnectionForSpacesInter
     public emitJoinSpace = vi.fn();
     public emitUpdateSpaceMetadata = vi.fn();
     public emitUpdateSpaceUserMessage = vi.fn();
+    public emitRequestFullSync = vi.fn();
 }

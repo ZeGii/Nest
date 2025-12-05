@@ -1,19 +1,29 @@
 import { Subscription } from "rxjs";
+import Debug from "debug";
 import * as Sentry from "@sentry/svelte";
+import { AbortError } from "@workadventure/shared-utils/src/Abort/AbortError";
 import { RoomConnection } from "../Connection/RoomConnection";
 import { ProximityChatRoom } from "../Chat/Connection/Proximity/ProximityChatRoom";
+
+const debug = Debug("ProximitySpaceManager");
 
 export class ProximitySpaceManager {
     private joinSpaceRequestMessageSubscription: Subscription;
     private leaveSpaceRequestMessageSubscription: Subscription;
 
     public constructor(roomConnection: RoomConnection, private proximityChatRoom: ProximityChatRoom) {
-        this.joinSpaceRequestMessageSubscription = roomConnection.joinSpaceRequestMessage.subscribe(({ spaceName }) => {
-            this.proximityChatRoom.joinSpace(spaceName).catch((e) => {
-                console.error(e);
-                Sentry.captureException(e);
-            });
-        });
+        this.joinSpaceRequestMessageSubscription = roomConnection.joinSpaceRequestMessage.subscribe(
+            ({ spaceName, propertiesToSync }) => {
+                this.proximityChatRoom.joinSpace(spaceName, propertiesToSync).catch((e) => {
+                    if (e instanceof AbortError) {
+                        debug("Join space aborted. The user left the space before finalizing the join", e);
+                        return;
+                    }
+                    console.error(e);
+                    Sentry.captureException(e);
+                });
+            }
+        );
 
         this.leaveSpaceRequestMessageSubscription = roomConnection.leaveSpaceRequestMessage.subscribe(
             ({ spaceName }) => {

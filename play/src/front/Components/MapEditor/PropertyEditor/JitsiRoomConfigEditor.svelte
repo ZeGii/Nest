@@ -8,7 +8,7 @@
     import PopUpContainer from "../../PopUp/PopUpContainer.svelte";
     import ButtonClose from "../../Input/ButtonClose.svelte";
     export let isOpen: boolean;
-    export let onSave: (config: JitsiRoomConfigData) => void;
+    export let onSave: (config: JitsiRoomConfigData & { jitsiRoomAdminTag: string }) => void;
 
     const dispatch = createEventDispatcher<{
         change: undefined;
@@ -45,7 +45,7 @@
     }
 
     function saveAndClose() {
-        onSave(currentConfig);
+        onSave({ ...currentConfig, jitsiRoomAdminTag });
         close();
     }
 
@@ -97,7 +97,7 @@
                     <button class=" btn btn-light btn-border w-full h-12" on:click={closeModal}>
                         {$LL.mapEditor.properties.jitsiProperties.jitsiRoomConfig.cancel()}
                     </button>
-                    <button class=" btn btn-secondary w-full h-12 " on:click={saveAndClose}>
+                    <button class=" btn btn-secondary w-full h-12" on:click={saveAndClose}>
                         {$LL.mapEditor.properties.jitsiProperties.jitsiRoomConfig.validate()}
                     </button>
                 </div>

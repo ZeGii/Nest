@@ -59,8 +59,6 @@ const PING_INTERVAL = 80000;
 
 const roomManager = {
     joinRoom: (call: UserSocket): void => {
-        console.log("joinRoom called");
-
         let room: GameRoom | null = null;
         let user: User | null = null;
         let pongTimeoutId: NodeJS.Timeout | undefined;
@@ -100,7 +98,7 @@ const roomManager = {
                                 })
                                 .catch((e) => {
                                     console.error("message handleJoinRoom error: ", e);
-                                    Sentry.captureException(`message handleJoinRoom error: ${JSON.stringify(e)}`);
+                                    Sentry.captureException(e);
                                     emitError(call, e);
                                 });
                         } else if (message.message.$case !== "pingMessage") {
@@ -123,20 +121,12 @@ const roomManager = {
                                 await socketManager.handleVariableEvent(room, user, message.message.variableMessage);
                                 break;
                             }
-                            case "webRtcSignalToServerMessage": {
-                                socketManager.emitVideo(room, user, message.message.webRtcSignalToServerMessage);
-                                break;
-                            }
-                            case "webRtcScreenSharingSignalToServerMessage": {
-                                socketManager.emitScreenSharing(
-                                    room,
-                                    user,
-                                    message.message.webRtcScreenSharingSignalToServerMessage
-                                );
-                                break;
-                            }
                             case "queryMessage": {
                                 await socketManager.handleQueryMessage(room, user, message.message.queryMessage);
+                                break;
+                            }
+                            case "abortQueryMessage": {
+                                socketManager.handleAbortQueryMessage(room, user, message.message.abortQueryMessage);
                                 break;
                             }
                             case "emotePromptMessage": {
@@ -214,11 +204,7 @@ const roomManager = {
                             message.message.$case,
                         e
                     );
-                    Sentry.captureException(
-                        "An error occurred while managing a message of type PusherToBackMessage:" +
-                            message.message.$case +
-                            JSON.stringify(e)
-                    );
+                    Sentry.captureException(e);
                     emitError(call, e);
                     call.end();
                 }
@@ -252,9 +238,9 @@ const roomManager = {
         call.on("error", (err: unknown) => {
             // Note: it seems "end" is called before "error" and therefore, user is null
             console.error("An error occurred in joinRoom stream for user", user?.name, ":", err);
-            Sentry.captureException(
-                `An error occurred in joinRoom stream for user ${JSON.stringify(user?.name)}: ${JSON.stringify(err)}`
-            );
+            Sentry.captureException(err, {
+                user: user ?? undefined,
+            });
             closeConnection();
         });
 
@@ -286,7 +272,7 @@ const roomManager = {
             }
             const today = new Date();
             pongTimeoutId = setTimeout(() => {
-                console.log(
+                console.info(
                     "Connection lost with user ",
                     user?.uuid,
                     user?.name,
@@ -294,15 +280,6 @@ const roomManager = {
                     room?.roomUrl,
                     "at : ",
                     today.toLocaleString("en-GB")
-                );
-
-                Sentry.captureMessage(
-                    `Connection lost with user
-                    ${JSON.stringify(user?.uuid)}
-                    ${JSON.stringify(user?.name)}
-                    in room 
-                    ${JSON.stringify(room?.roomUrl)}`,
-                    "debug"
                 );
                 call.write({
                     message: {
@@ -387,8 +364,6 @@ const roomManager = {
     },
 
     adminRoom(call: AdminSocket): void {
-        console.log("adminRoom called");
-
         const admin = new Admin(call);
         let room: GameRoom | null = null;
 

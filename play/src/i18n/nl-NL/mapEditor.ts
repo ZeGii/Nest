@@ -100,17 +100,27 @@ const mapEditor: DeepPartial<Translation["mapEditor"]> = {
         },
         advancedOptions: "Geavanceerde opties",
         speakerMegaphoneProperties: {
-            label: "Sprekerzone",
-            description: "",
+            label: "Podium",
+            description:
+                'Gebruikers op het podium (podium) kunnen spreken tot alle deelnemers in het bijbehorende "Publiek" gebied.',
             nameLabel: "Naam",
-            namePlaceholder: "MijnSprekerZone",
+            namePlaceholder: "HoofdPodium",
+            disabled: "Podium is uitgeschakeld voor deze kamer ❌",
         },
         listenerMegaphoneProperties: {
-            label: "Deelnemerszone",
-            description: "",
-            nameLabel: "SprekerZone Naam",
+            label: "Publiek",
+            description: "Gebruikers in het publieksgebied kunnen de spreker op het gekoppelde podium horen.",
+            nameLabel: "Podiumnaam",
+            disabled: "Publiek is uitgeschakeld voor deze kamer ❌",
             namePlaceholder: "MijnSprekerZone",
+            waitingMediaLinkLabel: "Media om weer te geven voordat de livestream begint",
+            waitingMediaLinkPlaceholder: "https://www… (media-URL invoeren)",
+            waitingMedialLinkError:
+                "Er lijkt een probleem te zijn met de link die je hebt opgegeven. Zou je hem opnieuw kunnen controleren? 🙏",
+            waitingMedialLinkHelp: "De juiste link zou 'https://monlienmedia.com/…' moeten zijn.",
+            waitingSpeaker: "Wachten op de spreker 🎤✨",
         },
+
         chatEnabled: "Koppel een speciale chatkanaal",
         startProperties: {
             label: "Startgebied",
@@ -229,6 +239,7 @@ const mapEditor: DeepPartial<Translation["mapEditor"]> = {
                 cancel: "Annuleren",
             },
         },
+        nameHelpText: "Deze tekst wordt aan de gebruiker getoond wanneer ze het gebied betreden.",
     },
     areaEditorInstructions: {
         title: "Hoe werkt het?",
@@ -363,6 +374,9 @@ const mapEditor: DeepPartial<Translation["mapEditor"]> = {
             moveToArea: "Verplaats naar gebied {name}",
             errorMovingToObject: "Het object is nog niet toegankelijk 🚫",
         },
+        zoomIn: "Zoom In +",
+        zoomOut: "Zoom Out -",
+        showMyLocation: "Toon mijn locatie",
     },
     listRoom: {
         isFetching: "Lijst met kamers wordt opgehaald... ⤵️",

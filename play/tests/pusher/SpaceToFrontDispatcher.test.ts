@@ -1,4 +1,4 @@
-import { SpaceUser, SubMessage, PusherToBackSpaceMessage, FilterType } from "@workadventure/messages";
+import { SpaceUser, SubMessage, PusherToBackSpaceMessage } from "@workadventure/messages";
 import { describe, it, vi, expect } from "vitest";
 import { mock } from "vitest-mock-extended";
 import { EventProcessor } from "../../src/pusher/models/EventProcessor";
@@ -41,7 +41,6 @@ describe("SpaceToFrontDispatcher", () => {
                         addSpaceUserMessage: {
                             spaceName: "test",
                             user: spaceUser,
-                            filterType: FilterType.ALL_USERS,
                         },
                     },
                 });
@@ -99,7 +98,6 @@ describe("SpaceToFrontDispatcher", () => {
                         addSpaceUserMessage: {
                             spaceName: "test",
                             user: spaceUser,
-                            filterType: FilterType.ALL_USERS,
                         },
                     },
                 });
@@ -576,6 +574,7 @@ describe("SpaceToFrontDispatcher", () => {
                                     $case: "spaceMessage",
                                     spaceMessage: {
                                         message: "test",
+                                        characterTextures: [],
                                     },
                                 },
                             },
@@ -654,6 +653,7 @@ describe("SpaceToFrontDispatcher", () => {
                                     $case: "spaceMessage",
                                     spaceMessage: {
                                         message: "test",
+                                        characterTextures: [],
                                     },
                                 },
                             },
@@ -672,6 +672,7 @@ describe("SpaceToFrontDispatcher", () => {
                                     $case: "spaceMessage",
                                     spaceMessage: {
                                         message: "test",
+                                        characterTextures: [],
                                     },
                                 },
                             },
@@ -718,7 +719,10 @@ describe("SpaceToFrontDispatcher", () => {
                         $case: "privateEvent",
                         privateEvent: {
                             spaceName: "test",
-                            senderUserId: "foo_1",
+                            sender: SpaceUser.fromPartial({
+                                spaceUserId: "foo_1",
+                                uuid: "uuid-foo-1",
+                            }),
                             receiverUserId: "foo_2",
                             spaceEvent: {
                                 event: undefined,
@@ -768,7 +772,10 @@ describe("SpaceToFrontDispatcher", () => {
                         $case: "privateEvent",
                         privateEvent: {
                             spaceName: "test",
-                            senderUserId: "foo_1",
+                            sender: SpaceUser.fromPartial({
+                                spaceUserId: "foo_1",
+                                uuid: "uuid-foo-1",
+                            }),
                             receiverUserId: "falseReceiverId",
                             spaceEvent: {
                                 event: {
@@ -833,7 +840,10 @@ describe("SpaceToFrontDispatcher", () => {
                         $case: "privateEvent",
                         privateEvent: {
                             spaceName: "test",
-                            senderUserId: "falseSenderId",
+                            sender: SpaceUser.fromPartial({
+                                spaceUserId: "foo_1",
+                                uuid: "uuid-foo-1",
+                            }),
                             receiverUserId: "foo_2",
                             spaceEvent: {
                                 event: {
@@ -928,7 +938,10 @@ describe("SpaceToFrontDispatcher", () => {
                         $case: "privateEvent",
                         privateEvent: {
                             spaceName: "test",
-                            senderUserId: "foo_1",
+                            sender: SpaceUser.fromPartial({
+                                spaceUserId: "foo_1",
+                                uuid: "uuid-foo-1",
+                            }),
                             receiverUserId: "foo_2",
                             spaceEvent: {
                                 event: {
@@ -947,7 +960,13 @@ describe("SpaceToFrontDispatcher", () => {
                         $case: "privateEvent",
                         privateEvent: {
                             spaceName: "test",
-                            senderUserId: "foo_1",
+                            sender: {
+                                ...SpaceUser.fromPartial({
+                                    spaceUserId: "foo_1",
+                                    uuid: "uuid-foo-1",
+                                }),
+                                lowercaseName: "",
+                            },
                             receiverUserId: "foo_2",
                             spaceEvent: {
                                 event: {
@@ -1025,6 +1044,7 @@ describe("SpaceToFrontDispatcher", () => {
                                 $case: "spaceMessage",
                                 spaceMessage: {
                                     message: "test",
+                                    characterTextures: [],
                                 },
                             },
                         },
@@ -1043,6 +1063,7 @@ describe("SpaceToFrontDispatcher", () => {
                                 $case: "spaceMessage",
                                 spaceMessage: {
                                     message: "test",
+                                    characterTextures: [],
                                 },
                             },
                         },

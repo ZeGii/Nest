@@ -10,21 +10,26 @@ function createStreamableFromVideo(url: string, config: VideoConfig): Streamable
             type: "scripting",
             url,
             config,
+            isBlocked: writable(false),
         },
         volumeStore: undefined,
+        spaceUserId: undefined,
         hasVideo: writable(true),
         hasAudio: writable(false),
         isMuted: writable(false),
         statusStore: writable("connected"),
-        getExtendedSpaceUser: () => undefined,
         name: writable(config.name ?? ""),
         showVoiceIndicator: writable(false),
-        pictureStore: writable(config.avatar),
         flipX: false,
         muteAudio: false,
         // FIXME: move this to fit after our tests
         displayMode: "cover",
         displayInPictureInPictureMode: false,
+        usePresentationMode: false,
+        once: (event: string, callback: (...args: unknown[]) => void) => {
+            callback();
+        },
+        closeStreamable: () => {},
     };
 }
 

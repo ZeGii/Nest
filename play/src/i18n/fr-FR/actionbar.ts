@@ -8,7 +8,7 @@ const actionbar: DeepPartial<Translation["actionbar"]> = {
     close: "Fermer",
     login: "Se connecter",
     //logout: "Se déconnecter",
-    map: "Map",
+    map: "Carte",
     startScreenSharing: "Partager mon écran",
     stopScreenSharing: "Arrêter le partage",
     screenSharingMode: "Mode partage d'écran",
@@ -34,23 +34,36 @@ const actionbar: DeepPartial<Translation["actionbar"]> = {
     camera: {
         disabled: "Votre caméra est désactivé",
         activate: "Activer votre camera",
+        noDevices: "Aucune caméra trouvée",
+        setBackground: "Définir le fond",
+        blurEffects: "Effets de flou",
+        disableBackgroundEffects: "Désactiver les effets de fond",
+        close: "Fermer",
     },
     microphone: {
         disabled: "Votre micro est désactivé",
         activate: "Activer votre micro",
+        noDevices: "Aucun micro trouvé",
     },
-
+    speaker: {
+        disabled: "Votre haut-parleur est désactivé",
+        activate: "Activer votre haut-parleur",
+        noDevices: "Aucun haut-parleur trouvé",
+    },
     status: {
         ONLINE: "En ligne",
         AWAY: "Absent",
         BACK_IN_A_MOMENT: "De retour bientôt",
         DO_NOT_DISTURB: "Ne pas déranger",
         BUSY: "Occupé",
+        OFFLINE: "Hors ligne",
         SILENT: "Silencieux",
         JITSI: "En réunion",
         BBB: "En réunion",
         DENY_PROXIMITY_MEETING: "Non disponible",
         SPEAKER: "En réunion",
+        LIVEKIT: "En réunion",
+        LISTENER: "En réunion",
     },
     subtitle: {
         camera: "Camera",
@@ -72,29 +85,35 @@ const actionbar: DeepPartial<Translation["actionbar"]> = {
         },
         audioManager: {
             title: "Volume des sons ambiants",
+            desc: "Réglez le volume des sons d’ambiance de la carte (musique, bruitages).",
         },
         audioManagerNotAllowed: {
             title: "Sons ambiants bloqués",
+            desc: "Votre navigateur a empêché la lecture des sons ambiants. Cliquez sur l’icône pour lancer la lecture.",
         },
         follow: {
             title: "Demander à vous suivre",
             desc: "Vous pouvez demander à un utilisateur de vous suivre, et si cette demande est acceptée, son Woka vous suivra automatiquement, établissant ainsi une connexion fluide.",
         },
         lock: {
-            title: "Vérouiller la bulle",
+            title: "Verrouiller la bulle",
             desc: "En activant cette fonctionnalité, vous garantissez que personne ne pourra rejoindre la discussion. Vous êtes maître de votre espace, et seules les personnes déjà présentes peuvent interagir.",
         },
         mic: {
             title: "Activer/désactiver votre micro",
+            desc: "Activez ou coupez votre micro pour que les autres vous entendent pendant la discussion.",
         },
         micDisabledByStatus: {
             title: "Micro désactivé",
+            desc: "Votre micro est désactivé car votre statut est « {status} ».",
         },
         cam: {
             title: "Activer/désactiver votre caméra",
+            desc: "Activez ou coupez votre caméra pour montrer votre vidéo aux autres participants.",
         },
         camDisabledByStatus: {
             title: "Caméra désactivée",
+            desc: "Votre caméra est désactivée car votre statut est « {status} ».",
         },
         share: {
             title: "Partager votre écran",
@@ -110,12 +129,15 @@ const actionbar: DeepPartial<Translation["actionbar"]> = {
         },
         roomList: {
             title: "Liste des salons",
+            desc: "Parcourez la liste des salons pour voir qui est présent et rejoindre une conversation en un clic.",
         },
         calendar: {
             title: "Calendrier",
+            desc: "Consultez vos réunions à venir et rejoignez-les directement depuis WorkAdventure.",
         },
         todolist: {
             title: "Liste de tâches",
+            desc: "Gérez vos tâches du jour sans quitter votre espace de travail.",
         },
     },
     listStatusTitle: {
@@ -132,6 +154,23 @@ const actionbar: DeepPartial<Translation["actionbar"]> = {
     },
     //appList: "Liste des apps",
     featureNotAvailable: "Fonctionnalité non disponible pour votre salon 😭",
+    issueReport: {
+        menuAction: "Signaler un problème",
+        formTitle: "Signaler un problème",
+        emailLabel: "Email (non requise)",
+        nameLabel: "Nom (non requise)",
+        descriptionLabel: "Description* (requise)",
+        descriptionPlaceholder: "Quel est le problème ? Qu'est-ce que tu attendais ?",
+        submitButtonLabel: "Signaler un problème",
+        cancelButtonLabel: "Annuler",
+        confirmButtonLabel: "Confirmer",
+        addScreenshotButtonLabel: "Ajouter une capture d'écran",
+        removeScreenshotButtonLabel: "Supprimer la capture d'écran",
+        successMessageText: "Merci pour votre signalement ! Nous l'examinerons dès que possible.",
+        highlightToolText: "Mettre en évidence",
+        hideToolText: "Masquer",
+        removeHighlightText: "Supprimer",
+    },
 };
 
 export default actionbar;

@@ -7,13 +7,19 @@
         OpenWebsitePropertyData,
         PersonalAreaAccessClaimMode,
         PlayAudioPropertyData,
+        SpeakerMegaphonePropertyData,
     } from "@workadventure/map-editor";
     import { KlaxoonEvent, KlaxoonService } from "@workadventure/shared-utils";
     import { ApplicationDefinitionInterface } from "@workadventure/messages";
     import { v4 as uuid } from "uuid";
     import { LL } from "../../../../i18n/i18n-svelte";
     import { mapEditorSelectedAreaPreviewStore } from "../../../Stores/MapEditorStore";
-    import { FEATURE_FLAG_BROADCAST_AREAS, MATRIX_PUBLIC_URI, PUSHER_URL } from "../../../Enum/EnvironmentVariable";
+    import {
+        FEATURE_FLAG_BROADCAST_AREAS,
+        MATRIX_PUBLIC_URI,
+        PUSHER_URL,
+        ADMIN_URL,
+    } from "../../../Enum/EnvironmentVariable";
     import { analyticsClient } from "../../../Administration/AnalyticsClient";
     import { connectionManager } from "../../../Connection/ConnectionManager";
     import JitsiRoomPropertyEditor from "../PropertyEditor/JitsiRoomPropertyEditor.svelte";
@@ -29,15 +35,18 @@
     import AddPropertyButtonWrapper from "../PropertyEditor/AddPropertyButtonWrapper.svelte";
     import PersonalAreaPropertyEditor from "../PropertyEditor/PersonalAreaPropertyEditor.svelte";
     import RightsPropertyEditor from "../PropertyEditor/RightsPropertyEditor.svelte";
-    import { IconChevronDown, IconChevronRight } from "../../Icons";
+    import { IconChevronDown, IconChevronRight, IconInfoCircle } from "../../Icons";
     import { extensionModuleStore } from "../../../Stores/GameSceneStore";
     import { ExtensionModule, ExtensionModuleAreaProperty } from "../../../ExternalModule/ExtensionModule";
     import MatrixRoomPropertyEditor from "../PropertyEditor/MatrixRoomPropertyEditor.svelte";
     import TooltipPropertyButton from "../PropertyEditor/TooltipPropertyButton.svelte";
+    import LivekitRoomPropertyEditor from "../PropertyEditor/LivekitRoomPropertyEditor.svelte";
     import InputSwitch from "../../Input/InputSwitch.svelte";
     import Input from "../../Input/Input.svelte";
     import TextArea from "../../Input/TextArea.svelte";
     import { ON_ACTION_TRIGGER_ENTER } from "../../../WebRtc/LayoutManager";
+    import HighlightPropertyEditor from "../PropertyEditor/HighlightPropertyEditor.svelte";
+    import { gameManager } from "../../../Phaser/Game/GameManager";
 
     let properties: AreaDataProperties = [];
     let areaName = "";
@@ -45,6 +54,7 @@
     let areaSearchable = false;
     let hasJitsiRoomProperty: boolean;
     let hasFocusableProperty: boolean;
+    let hasHighlightProperty: boolean;
     let hasSilentProperty: boolean;
     let hasSpeakerMegaphoneProperty: boolean;
     let hasListenerMegaphoneProperty: boolean;
@@ -56,6 +66,7 @@
     let hasRightsProperty: boolean;
     let hasMatrixRoom: boolean;
     let hasTooltipPropertyData: boolean;
+    let hasLivekitRoomProperty: boolean;
 
     const ROOM_AREA_PUSHER_URL = new URL("roomArea", PUSHER_URL).toString();
 
@@ -92,12 +103,19 @@
                     type,
                     isDefault: true,
                 };
-            case "silent":
+            case "silent": {
+                // Add highlight property if not present. Use time out to improve UX and add after the listener megaphone property
+                setTimeout(() => {
+                    if (!$mapEditorSelectedAreaPreviewStore?.getProperties().find((p) => p.type === "highlight")) {
+                        $mapEditorSelectedAreaPreviewStore?.addProperty(getPropertyFromType("highlight"));
+                    }
+                }, 500);
                 return {
                     id,
                     type,
                     hideButtonLabel: true,
                 };
+            }
             case "focusable":
                 return {
                     id,
@@ -105,7 +123,23 @@
                     zoom_margin: 0.5,
                     hideButtonLabel: true,
                 };
-            case "jitsiRoomProperty":
+            case "highlight":
+                return {
+                    id,
+                    type,
+                    opacity: 0.6,
+                    gradientWidth: 10,
+                    duration: 250,
+                    color: "#000000",
+                    hideButtonLabel: true,
+                };
+            case "jitsiRoomProperty": {
+                // Add highlight property if not present. Use time out to improve UX and add after the listener megaphone property
+                setTimeout(() => {
+                    if (!$mapEditorSelectedAreaPreviewStore?.getProperties().find((p) => p.type === "highlight")) {
+                        $mapEditorSelectedAreaPreviewStore?.addProperty(getPropertyFromType("highlight"));
+                    }
+                }, 500);
                 return {
                     id,
                     type,
@@ -115,7 +149,27 @@
                     roomName: $LL.mapEditor.properties.jitsiProperties.label(),
                     trigger: ON_ACTION_TRIGGER_ENTER,
                 };
-            case "openWebsite":
+            }
+            case "livekitRoomProperty": {
+                // Add highlight property if not present. Use time out to improve UX and add after the listener megaphone property
+                setTimeout(() => {
+                    if (!$mapEditorSelectedAreaPreviewStore?.getProperties().find((p) => p.type === "highlight")) {
+                        $mapEditorSelectedAreaPreviewStore?.addProperty(getPropertyFromType("highlight"));
+                    }
+                }, 500);
+                return {
+                    id,
+                    type,
+                    roomName: "",
+                    livekitRoomConfig: {
+                        startWithAudioMuted: false,
+                        startWithVideoMuted: false,
+                        disableChat: false,
+                    },
+                    livekitRoomAdminTag: "",
+                };
+            }
+            case "openWebsite": {
                 // TODO refactore and use the same code than EntityPropertiesEditor
                 switch (subtype) {
                     case "youtube":
@@ -151,6 +205,9 @@
                         placeholder =
                             "https://member.workadventu.re/cards?tenant=<your tenant from cards>&learning=<your leaning from cards>";
                         break;
+                    case "tldraw":
+                        placeholder = "https://tldraw.com/";
+                        break;
                     default:
                         placeholder = "https://workadventu.re";
                         break;
@@ -169,7 +226,9 @@
                     policy,
                     width: 50,
                     trigger: ON_ACTION_TRIGGER_ENTER,
+                    hideUrl: false,
                 };
+            }
             case "playAudio":
                 return {
                     id,
@@ -178,20 +237,70 @@
                     audioLink: "",
                     volume: 1,
                 };
-            case "speakerMegaphone":
+            case "speakerMegaphone": {
+                const areasName = new Map<string, string>();
+                gameManager
+                    .getCurrentGameScene()
+                    .getGameMap()
+                    .getGameMapAreas()
+                    ?.getAreas()
+                    .forEach((area) => {
+                        const speakerMegaphonePropertyRaw = area.properties?.find(
+                            (property) => property.type === "speakerMegaphone"
+                        );
+                        if (speakerMegaphonePropertyRaw) {
+                            const speakerMegaphoneProperty =
+                                SpeakerMegaphonePropertyData.safeParse(speakerMegaphonePropertyRaw);
+                            if (speakerMegaphoneProperty.success) {
+                                areasName.set(area.id, speakerMegaphoneProperty.data.name);
+                            }
+                        }
+                    });
+                // Add highlight property if not present. Use time out to improve UX and add after the listener megaphone property
+                setTimeout(() => {
+                    if (!$mapEditorSelectedAreaPreviewStore?.getProperties().find((p) => p.type === "highlight")) {
+                        $mapEditorSelectedAreaPreviewStore?.addProperty(getPropertyFromType("highlight"));
+                    }
+                }, 500);
                 return {
                     id,
                     type,
-                    name: "",
+                    name: areasName.size > 0 ? `MySpeakerZone${areasName.size + 1}` : "MySpeakerZone1",
                     chatEnabled: false,
                 };
-            case "listenerMegaphone":
+            }
+            case "listenerMegaphone": {
+                const areasName = new Map<string, string>();
+                gameManager
+                    .getCurrentGameScene()
+                    .getGameMap()
+                    .getGameMapAreas()
+                    ?.getAreas()
+                    .forEach((area) => {
+                        const speakerMegaphonePropertyRaw = area.properties?.find(
+                            (property) => property.type === "speakerMegaphone"
+                        );
+                        if (speakerMegaphonePropertyRaw) {
+                            const speakerMegaphoneProperty =
+                                SpeakerMegaphonePropertyData.safeParse(speakerMegaphonePropertyRaw);
+                            if (speakerMegaphoneProperty.success) {
+                                areasName.set(area.id, speakerMegaphoneProperty.data.name);
+                            }
+                        }
+                    });
+                // Add highlight property if not present. Use time out to improve UX and add after the listener megaphone property
+                setTimeout(() => {
+                    if (!$mapEditorSelectedAreaPreviewStore?.getProperties().find((p) => p.type === "highlight")) {
+                        $mapEditorSelectedAreaPreviewStore?.addProperty(getPropertyFromType("highlight"));
+                    }
+                }, 500);
                 return {
                     id,
                     type,
-                    speakerZoneName: "",
+                    speakerZoneName: areasName.size == 1 ? [...areasName.keys()][0] : "",
                     chatEnabled: false,
                 };
+            }
             case "exit":
                 return {
                     id,
@@ -254,6 +363,7 @@
                     policy,
                     width: 50,
                     trigger: ON_ACTION_TRIGGER_ENTER,
+                    hideUrl: false,
                 };
             default:
                 throw new Error(`Unknown property type ${type}`);
@@ -300,6 +410,7 @@
             targetEmbedableUrl: app.targetUrl,
             forceNewTab: app.forceNewTab,
             allowAPI: app.allowAPI,
+            hideUrl: false,
         };
         $mapEditorSelectedAreaPreviewStore.addProperty(property);
 
@@ -366,6 +477,7 @@
     function refreshFlags(): void {
         hasJitsiRoomProperty = hasProperty("jitsiRoomProperty");
         hasFocusableProperty = hasProperty("focusable");
+        hasHighlightProperty = hasProperty("highlight");
         hasSilentProperty = hasProperty("silent");
         hasSpeakerMegaphoneProperty = hasProperty("speakerMegaphone");
         hasListenerMegaphoneProperty = hasProperty("listenerMegaphone");
@@ -376,6 +488,7 @@
         hasRightsProperty = hasProperty("restrictedRightsPropertyData");
         hasMatrixRoom = hasProperty("matrixRoomPropertyData");
         hasTooltipPropertyData = hasProperty("tooltipPropertyData");
+        hasLivekitRoomProperty = hasProperty("livekitRoomProperty");
     }
 
     function openKlaxoonActivityPicker(app: AreaDataProperty) {
@@ -417,7 +530,7 @@
 {:else}
     <div class="overflow-x-hidden space-y-3">
         <div class="properties-buttons flex flex-row flex-wrap">
-            {#if !hasPersonalAreaProperty && !hasRightsProperty}
+            {#if !hasPersonalAreaProperty && !hasRightsProperty && ADMIN_URL}
                 <AddPropertyButtonWrapper
                     property="personalAreaPropertyData"
                     on:click={() => onAddProperty("personalAreaPropertyData")}
@@ -431,14 +544,6 @@
             {/if}
         </div>
         <div class="properties-buttons flex flex-row flex-wrap">
-            {#if !hasFocusableProperty}
-                <AddPropertyButtonWrapper
-                    property="focusable"
-                    on:click={() => {
-                        onAddProperty("focusable");
-                    }}
-                />
-            {/if}
             {#if !hasSilentProperty}
                 <AddPropertyButtonWrapper
                     property="silent"
@@ -447,12 +552,13 @@
                     }}
                 />
             {/if}
-            {#if !hasJitsiRoomProperty}
+            {#if !hasLivekitRoomProperty}
                 <AddPropertyButtonWrapper
-                    property="jitsiRoomProperty"
+                    property="livekitRoomProperty"
                     on:click={() => {
-                        onAddProperty("jitsiRoomProperty");
+                        onAddProperty("livekitRoomProperty");
                     }}
+                    disabled={hasSpeakerMegaphoneProperty || hasListenerMegaphoneProperty}
                 />
             {/if}
             {#if FEATURE_FLAG_BROADCAST_AREAS}
@@ -462,6 +568,7 @@
                         on:click={() => {
                             onAddProperty("speakerMegaphone");
                         }}
+                        disabled={hasListenerMegaphoneProperty || hasLivekitRoomProperty}
                     />
                 {/if}
                 {#if !hasListenerMegaphoneProperty}
@@ -470,6 +577,7 @@
                         on:click={() => {
                             onAddProperty("listenerMegaphone");
                         }}
+                        disabled={hasSpeakerMegaphoneProperty || hasLivekitRoomProperty}
                     />
                 {/if}
             {/if}
@@ -497,17 +605,45 @@
                     }}
                 />
             {/if}
-            <AddPropertyButtonWrapper
-                property="openWebsite"
-                on:click={() => {
-                    onAddProperty("openWebsite");
-                }}
-            />
+
             {#if !hasMatrixRoom && MATRIX_PUBLIC_URI}
                 <AddPropertyButtonWrapper
                     property="matrixRoomPropertyData"
                     on:click={() => {
                         onAddProperty("matrixRoomPropertyData");
+                        if (hasLivekitRoomProperty) {
+                            const livekitRoomProperty = properties.find(
+                                (property) => property.type === "livekitRoomProperty"
+                            );
+                            if (livekitRoomProperty) {
+                                const config = livekitRoomProperty.livekitRoomConfig ?? {
+                                    startWithAudioMuted: false,
+                                    startWithVideoMuted: false,
+                                    disableChat: false,
+                                };
+
+                                config.disableChat = true;
+
+                                livekitRoomProperty.livekitRoomConfig = config;
+                                onUpdateProperty(livekitRoomProperty);
+                            }
+                        }
+                    }}
+                />
+            {/if}
+            {#if !hasFocusableProperty}
+                <AddPropertyButtonWrapper
+                    property="focusable"
+                    on:click={() => {
+                        onAddProperty("focusable");
+                    }}
+                />
+            {/if}
+            {#if !hasHighlightProperty}
+                <AddPropertyButtonWrapper
+                    property="highlight"
+                    on:click={() => {
+                        onAddProperty("highlight");
                     }}
                 />
             {/if}
@@ -519,14 +655,8 @@
                     }}
                 />
             {/if}
-            <AddPropertyButtonWrapper
-                property="openFile"
-                on:click={() => {
-                    onAddProperty("openFile");
-                }}
-            />
         </div>
-        {#if extensionModulesAreaMapEditor.length > 0}
+        {#if extensionModulesAreaMapEditor.length > 0 || !hasJitsiRoomProperty}
             <div class="properties-buttons flex flex-row flex-wrap mt-2">
                 {#each extensionModulesAreaMapEditor as extensionModuleAreaMapEditor, index (`extensionModulesAreaMapEditor-${index}`)}
                     {#each Object.entries(extensionModuleAreaMapEditor) as [subtype, areaProperty] (`extensionModuleAreaMapEditor-${subtype}`)}
@@ -541,9 +671,32 @@
                         {/if}
                     {/each}
                 {/each}
+                {#if !hasJitsiRoomProperty}
+                    <AddPropertyButtonWrapper
+                        property="jitsiRoomProperty"
+                        on:click={() => {
+                            onAddProperty("jitsiRoomProperty");
+                        }}
+                        disabled={hasLivekitRoomProperty || hasSpeakerMegaphoneProperty || hasListenerMegaphoneProperty}
+                    />
+                {/if}
             </div>
         {/if}
         <div class="properties-buttons flex flex-row flex-wrap mt-2">
+            <AddPropertyButtonWrapper
+                property="openWebsite"
+                on:click={() => {
+                    onAddProperty("openWebsite");
+                }}
+            />
+
+            <AddPropertyButtonWrapper
+                property="openFile"
+                on:click={() => {
+                    onAddProperty("openFile");
+                }}
+            />
+
             <AddPropertyButtonWrapper
                 property="openWebsite"
                 subProperty="klaxoon"
@@ -607,6 +760,13 @@
                     onAddProperty("openWebsite", "cards");
                 }}
             />
+            <AddPropertyButtonWrapper
+                property="openWebsite"
+                subProperty="tldraw"
+                on:click={() => {
+                    onAddProperty("openWebsite", "tldraw");
+                }}
+            />
         </div>
         <div class="properties-buttons flex flex-row flex-wrap mt-2">
             {#each connectionManager.applications as app, index (`my-own-app-${index}`)}
@@ -628,10 +788,14 @@
             bind:value={areaName}
             onChange={onUpdateName}
         />
+        <p class="help-text">
+            <IconInfoCircle font-size="18" />
+            {$LL.mapEditor.areaEditor.nameHelpText()}
+        </p>
 
         <div class="area-name-container">
             {#if !showDescriptionField}
-                <button class="ps-0 text-blue-500 flex flex-row items-center " on:click={toggleDescriptionField}>
+                <button class="ps-0 text-blue-500 flex flex-row items-center" on:click={toggleDescriptionField}>
                     <IconChevronRight />{$LL.mapEditor.areaEditor.addDescriptionField()}</button
                 >
             {:else}
@@ -662,6 +826,14 @@
                 <div class="property-box mt-[3rem]">
                     {#if property.type === "focusable"}
                         <FocusablePropertyEditor
+                            {property}
+                            on:close={() => {
+                                onDeleteProperty(property.id);
+                            }}
+                            on:change={() => onUpdateProperty(property)}
+                        />
+                    {:else if property.type === "highlight"}
+                        <HighlightPropertyEditor
                             {property}
                             on:close={() => {
                                 onDeleteProperty(property.id);
@@ -752,15 +924,17 @@
                         />
                     {:else if property.type === "extensionModule" && extensionModulesAreaMapEditor.length > 0}
                         {#each extensionModulesAreaMapEditor as extensionModuleAreaMapEditor, index (`extensionModulesAreaMapEditor-${index}`)}
-                            <svelte:component
-                                this={extensionModuleAreaMapEditor[property.subtype].AreaPropertyEditor}
-                                {extensionModuleAreaMapEditor}
-                                {property}
-                                on:close={() => {
-                                    onDeleteProperty(property.id);
-                                }}
-                                on:change={() => onUpdateProperty(property)}
-                            />
+                            {#if extensionModuleAreaMapEditor[property.subtype] != undefined}
+                                <svelte:component
+                                    this={extensionModuleAreaMapEditor[property.subtype].AreaPropertyEditor}
+                                    {extensionModuleAreaMapEditor}
+                                    {property}
+                                    on:close={() => {
+                                        onDeleteProperty(property.id);
+                                    }}
+                                    on:change={() => onUpdateProperty(property)}
+                                />
+                            {/if}
                         {/each}
                     {:else if property.type === "matrixRoomPropertyData"}
                         <MatrixRoomPropertyEditor
@@ -786,6 +960,17 @@
                                 onDeleteProperty(property.id);
                             }}
                             on:change={() => onUpdateProperty(property)}
+                        />
+                    {:else if property.type === "livekitRoomProperty"}
+                        <LivekitRoomPropertyEditor
+                            {property}
+                            {hasHighlightProperty}
+                            shouldDisableDisableChatButton={hasMatrixRoom}
+                            on:close={() => {
+                                onDeleteProperty(property.id);
+                            }}
+                            on:change={() => onUpdateProperty(property)}
+                            on:highlightAreaOnEnter={() => onAddProperty("highlight")}
                         />
                     {/if}
                 </div>
